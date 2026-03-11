@@ -310,8 +310,8 @@ export class Renderer {
   }
 
   _drawHUD(state) {
-    const { ctx, width } = this;
-    const { wave, gameTime, players } = state;
+    const { ctx, width, height } = this;
+    const { wave, gameTime, players, enemies } = state;
 
     // Wave & time
     ctx.fillStyle = '#888';
@@ -341,5 +341,21 @@ export class Renderer {
       ctx.fillText(p.name.substring(0, 8), barX, 28);
       barX += barW + 8;
     }
+
+    // Debug: enemy count overlay (bottom-left)
+    const aliveEnemies = enemies.filter(e => e.alive);
+    const byType = {};
+    for (const e of aliveEnemies) byType[e.type] = (byType[e.type] || 0) + 1;
+    const lines = [`enemies: ${aliveEnemies.length}`,
+      ...Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `  ${t}: ${n}`)
+    ];
+    ctx.font = '11px "Courier New"';
+    ctx.textAlign = 'left';
+    lines.forEach((line, i) => {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(8, height - 16 - (lines.length - i - 1) * 14, 130, 13);
+      ctx.fillStyle = '#0f0';
+      ctx.fillText(line, 10, height - 5 - (lines.length - i - 1) * 14);
+    });
   }
 }

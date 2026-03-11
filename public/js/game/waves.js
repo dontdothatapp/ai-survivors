@@ -3,6 +3,7 @@ import { Enemy } from './entities.js';
 import { GAME_CONFIG } from './config.js';
 
 const WAVE_DURATION = 45; // seconds per sprint
+const MAX_ENEMIES = 40;
 
 const SPRINT_NEW_ENEMY = {
   1: { type: 'jira', name: 'Jira Ticket' },
@@ -104,15 +105,28 @@ export class WaveManager {
   _spawnWaveEnemies(enemies, players, aw, ah) {
     const wave = this.currentWave;
 
-    // Boss wave — spawn boss once, then stop
+    const aliveCount = enemies.filter(e => e.alive).length;
+
+    // Boss wave — spawn boss once, then spawn elite escorts each interval
     if (wave >= 7) {
       if (!this.bossSpawned) {
         this.bossSpawned = true;
         const pos = this._spawnPosition(players, aw, ah);
         enemies.push(new Enemy('boss', pos.x, pos.y, wave));
       }
+      if (aliveCount >= MAX_ENEMIES) return;
+      // Spawn a small escort group alongside the boss
+      const escortPool = ['vp', 'vp', 'em', 'em', 'pm'];
+      const escortCount = 1 + Math.floor(Math.random() * 2); // 1–2 escorts
+      for (let i = 0; i < escortCount; i++) {
+        const type = escortPool[Math.floor(Math.random() * escortPool.length)];
+        const pos = this._spawnPosition(players, aw, ah);
+        enemies.push(new Enemy(type, pos.x, pos.y, wave));
+      }
       return;
     }
+
+    if (aliveCount >= MAX_ENEMIES) return;
 
     const count = Math.min(1 + wave, 6);
     for (let i = 0; i < count; i++) {
@@ -124,14 +138,20 @@ export class WaveManager {
   }
 
   _pickEnemyType(wave) {
-    // Common minions (heavily weighted)
-    const pool = ['jira', 'jira', 'jira'];
-    if (wave >= 2) pool.push('bug', 'bug', 'bug');
-    // Elites (rare)
-    if (wave >= 3) pool.push('pm');
-    if (wave >= 4) pool.push('em');
-    if (wave >= 5) pool.push('vp');
-    if (wave >= 6) pool.push('ceo');
+    // Each sprint's "new" enemy type dominates; earlier types taper off
+    const weights = {
+      1: { jira: 10 },
+      2: { jira: 3, bug: 7 },
+      3: { jira: 1, bug: 3, pm: 6 },
+      4: { bug: 1, pm: 3, em: 6 },
+      5: { pm: 1, em: 3, vp: 6 },
+      6: { em: 1, vp: 3, ceo: 6 },
+    };
+    const w = weights[wave] || weights[6];
+    const pool = [];
+    for (const [type, count] of Object.entries(w)) {
+      for (let i = 0; i < count; i++) pool.push(type);
+    }
     return pool[Math.floor(Math.random() * pool.length)];
   }
 

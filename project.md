@@ -175,6 +175,7 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 - Spawn count: `min(1 + wave, 6)` per batch; rate `max(0.8, 3 - wave * 0.25)` seconds
 - Spawn position: random angle, 500–700px from player centroid (off-screen)
 - All stats scale by `1 + (wave - 1) * 0.05`
+- **Enemy cap**: `MAX_ENEMIES = 40` — both the wave spawner and the inline `spawnEnemy()` callback (used by PM/CEO/boss abilities) refuse to push new enemies when 40 are alive
 
 ### Sprint Progression
 
@@ -216,7 +217,7 @@ XP formula: `xpToNext = Math.round(15 × xpMultiplier^(level-1))` — exponentia
 - Screen shake: intensity + timer, applied as random translate offset
 - Floating texts: world-space, rise + fade over ~0.8s
 - Sprites: programmatic pixel art cached to offscreen canvases (`sprites.js`)
-- HUD: wave/time top-left, engineer count top-right, mini HP bars per player
+- HUD: wave/time top-left, engineer count top-right, mini HP bars per player, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
 - Upgrade pause overlay: semi-transparent black + "LEVEL UP!" + player name/color
 - Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
 

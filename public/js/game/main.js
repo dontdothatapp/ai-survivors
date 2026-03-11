@@ -594,6 +594,7 @@ function gameLoop(timestamp) {
 }
 
 function spawnEnemy(type, x, y) {
+  if (enemies.filter(e => e.alive).length >= 40) return;
   enemies.push(new Enemy(type, x, y, waveManager.currentWave));
 }
 
