@@ -1,0 +1,298 @@
+// All canvas drawing
+import { getPlayerSprite, getEnemySprite, getProjectileSprite, getXPGemSprite } from './sprites.js';
+
+export class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.camera = { x: 0, y: 0 };
+    this.shake = { x: 0, y: 0, intensity: 0, timer: 0 };
+    this.floatingTexts = [];
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    this.width = this.canvas.width;
+    this.height = this.canvas.height;
+  }
+
+  addScreenShake(intensity = 5, duration = 0.15) {
+    this.shake.intensity = intensity;
+    this.shake.timer = duration;
+  }
+
+  addFloatingText(x, y, text, color = '#fff', duration = 0.8) {
+    this.floatingTexts.push({ x, y, text, color, timer: duration, maxTimer: duration });
+  }
+
+  updateCamera(players, dt) {
+    // Track centroid of alive players
+    let cx = 0, cy = 0, count = 0;
+    for (const p of players) {
+      if (p.alive) { cx += p.x; cy += p.y; count++; }
+    }
+    if (count > 0) {
+      cx /= count;
+      cy /= count;
+    }
+    // Smooth camera
+    const lerp = 1 - Math.pow(0.01, dt);
+    this.camera.x += (cx - this.width / 2 - this.camera.x) * lerp;
+    this.camera.y += (cy - this.height / 2 - this.camera.y) * lerp;
+
+    // Screen shake
+    if (this.shake.timer > 0) {
+      this.shake.timer -= dt;
+      this.shake.x = (Math.random() - 0.5) * 2 * this.shake.intensity;
+      this.shake.y = (Math.random() - 0.5) * 2 * this.shake.intensity;
+    } else {
+      this.shake.x = 0;
+      this.shake.y = 0;
+    }
+
+    // Update floating texts
+    this.floatingTexts = this.floatingTexts.filter(t => {
+      t.timer -= dt;
+      return t.timer > 0;
+    });
+  }
+
+  render(state) {
+    const { ctx } = this;
+    const { players, enemies, projectiles, xpGems, wave, gameTime } = state;
+
+    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    ctx.save();
+    ctx.translate(-this.camera.x + this.shake.x, -this.camera.y + this.shake.y);
+
+    // Grid background
+    this._drawGrid();
+
+    // XP gems
+    for (const gem of xpGems) {
+      if (!gem.alive) continue;
+      this._drawGem(gem);
+    }
+
+    // Projectiles
+    for (const p of projectiles) {
+      if (!p.alive) continue;
+      this._drawProjectile(p);
+    }
+
+    // Enemies
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      this._drawEnemy(e);
+    }
+
+    // Players
+    for (const p of players) {
+      if (!p.alive) continue;
+      this._drawPlayer(p);
+    }
+
+    // Floating texts
+    for (const t of this.floatingTexts) {
+      const alpha = t.timer / t.maxTimer;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = t.color;
+      ctx.font = 'bold 14px "Courier New"';
+      ctx.textAlign = 'center';
+      const yOffset = (1 - alpha) * 30;
+      ctx.fillText(t.text, t.x, t.y - yOffset);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+
+    // HUD overlay
+    this._drawHUD(state);
+
+    // Pause overlay
+    if (state.paused && state.pausedPlayer) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, this.width, this.height);
+      ctx.fillStyle = '#ffcc00';
+      ctx.font = 'bold 28px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.fillText('LEVEL UP!', this.width / 2, this.height / 2 - 20);
+      ctx.fillStyle = state.pausedPlayer.color;
+      ctx.font = '18px "Courier New"';
+      ctx.fillText(`${state.pausedPlayer.name} is choosing an upgrade...`, this.width / 2, this.height / 2 + 16);
+    }
+  }
+
+  _drawGrid() {
+    const { ctx, camera, width, height } = this;
+    const gridSize = 80;
+    ctx.strokeStyle = '#151525';
+    ctx.lineWidth = 1;
+    const startX = Math.floor(camera.x / gridSize) * gridSize;
+    const startY = Math.floor(camera.y / gridSize) * gridSize;
+    for (let x = startX; x < camera.x + width + gridSize; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, camera.y);
+      ctx.lineTo(x, camera.y + height);
+      ctx.stroke();
+    }
+    for (let y = startY; y < camera.y + height + gridSize; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(camera.x, y);
+      ctx.lineTo(camera.x + width, y);
+      ctx.stroke();
+    }
+  }
+
+  _drawPlayer(player) {
+    const { ctx } = this;
+    const { x, y, color, name, hp, maxHp, level, invincibleTimer, radius } = player;
+
+    // Invincibility flash
+    if (invincibleTimer > 0 && Math.floor(invincibleTimer * 20) % 2) return;
+
+    // Sprite
+    const sprite = getPlayerSprite(color);
+    ctx.drawImage(sprite, x - 16, y - 16, 32, 32);
+
+    // Rubber duck orbit
+    if (player.weapons.some(w => w.type === 'rubber_duck')) {
+      const duckX = x + Math.cos(player.rubberDuckAngle) * 50;
+      const duckY = y + Math.sin(player.rubberDuckAngle) * 50;
+      ctx.fillStyle = '#ffdd00';
+      ctx.beginPath();
+      ctx.arc(duckX, duckY, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Coffee aura
+    if (player.coffeeActive) {
+      ctx.strokeStyle = '#8B451366';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 120, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Name
+    ctx.fillStyle = color;
+    ctx.font = '11px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, x, y - 22);
+
+    // HP bar
+    const barW = 30;
+    const barH = 4;
+    const barY = y - 28;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x - barW / 2, barY, barW, barH);
+    ctx.fillStyle = hp / maxHp > 0.3 ? '#ff4444' : '#ff0000';
+    ctx.fillRect(x - barW / 2, barY, barW * (hp / maxHp), barH);
+
+    // Level badge
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 9px "Courier New"';
+    ctx.fillText(`Lv${level}`, x, y + 26);
+  }
+
+  _drawEnemy(enemy) {
+    const { ctx } = this;
+    const { x, y, type, flash, hp, maxHp, radius, frozenTimer } = enemy;
+
+    // Frozen indicator
+    if (frozenTimer > 0) {
+      ctx.fillStyle = '#44aaff44';
+      ctx.beginPath();
+      ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Hit flash
+    if (flash > 0) {
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    // Sprite
+    const size = type === 'boss' ? 64 : 32;
+    const sprite = getEnemySprite(type);
+    ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size);
+
+    // HP bar for elites and boss
+    if (type === 'pm' || type === 'em' || type === 'vp' || type === 'boss') {
+      const barW = type === 'boss' ? 60 : 36;
+      const barH = 4;
+      const barY = y - size / 2 - 6;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(x - barW / 2, barY, barW, barH);
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(x - barW / 2, barY, barW * (hp / maxHp), barH);
+    }
+  }
+
+  _drawProjectile(proj) {
+    const { ctx } = this;
+
+    if (proj.isAOE) {
+      // AOE pulse ring
+      const alpha = proj.lifetime / 0.3;
+      ctx.strokeStyle = `rgba(255, 100, 100, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, proj.aoe * (1 - alpha * 0.3), 0, Math.PI * 2);
+      ctx.stroke();
+      return;
+    }
+
+    const sprite = getProjectileSprite(proj.type);
+    ctx.drawImage(sprite, proj.x - 6, proj.y - 6, 12, 12);
+  }
+
+  _drawGem(gem) {
+    const sprite = getXPGemSprite();
+    this.ctx.drawImage(sprite, gem.x - 6, gem.y - 6, 12, 12);
+  }
+
+  _drawHUD(state) {
+    const { ctx, width } = this;
+    const { wave, gameTime, players } = state;
+
+    // Wave & time
+    ctx.fillStyle = '#888';
+    ctx.font = '14px "Courier New"';
+    ctx.textAlign = 'left';
+    const minutes = Math.floor(gameTime / 60);
+    const seconds = Math.floor(gameTime % 60);
+    ctx.fillText(`Sprint ${wave}  |  ${minutes}:${seconds.toString().padStart(2, '0')}`, 10, 20);
+
+    // Player count
+    const alive = players.filter(p => p.alive).length;
+    ctx.textAlign = 'right';
+    ctx.fillText(`Engineers: ${alive}/${players.length}`, width - 10, 20);
+
+    // Mini player bars at top
+    let barX = 10;
+    for (const p of players) {
+      const barW = 60;
+      const barH = 6;
+      ctx.fillStyle = '#222';
+      ctx.fillRect(barX, 30, barW, barH);
+      ctx.fillStyle = p.alive ? p.color : '#333';
+      ctx.fillRect(barX, 30, barW * (p.hp / p.maxHp), barH);
+      ctx.fillStyle = p.alive ? '#aaa' : '#555';
+      ctx.font = '9px "Courier New"';
+      ctx.textAlign = 'left';
+      ctx.fillText(p.name.substring(0, 8), barX, 28);
+      barX += barW + 8;
+    }
+  }
+}

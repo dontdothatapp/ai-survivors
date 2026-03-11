@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SURVIVORS</title>
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="lobby">
+    <h1>AI SURVIVORS</h1>
+    <p class="subtitle">Software Engineers vs. The Inevitable</p>
+    <div id="qr-section">
+      <p>Join from your phone:</p>
+      <canvas id="qrCanvas" width="200" height="200"></canvas>
+      <p id="joinUrl" class="join-url"></p>
+    </div>
+    <div id="playerList">
+      <h2>Players</h2>
+      <ul id="players"></ul>
+    </div>
+    <button id="startBtn" disabled>START GAME</button>
+  </div>
+  <div id="hud" style="display:none">
+    <div id="waveAnnouncement"></div>
+  </div>
+  <div id="gameOver" style="display:none">
+    <h1 id="gameOverTitle"></h1>
+    <p id="gameOverText"></p>
+    <div id="gameOverStats"></div>
+    <button id="restartBtn">PLAY AGAIN</button>
+  </div>
+  <script type="module" src="js/game/main.js"></script>
+</body>
+</html>

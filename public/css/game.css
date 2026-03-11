@@ -1,0 +1,162 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a1a;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Lobby */
+#lobby {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #0a0a1a;
+  z-index: 10;
+}
+
+#lobby h1 {
+  font-size: 48px;
+  color: #00ff88;
+  text-shadow: 0 0 20px #00ff8866;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+#qr-section {
+  text-align: center;
+}
+
+#qrCanvas {
+  background: white;
+  border-radius: 8px;
+  margin: 8px auto;
+  display: block;
+}
+
+.join-url {
+  color: #00ff88;
+  font-size: 14px;
+}
+
+#playerList {
+  text-align: center;
+  min-height: 100px;
+}
+
+#playerList h2 {
+  color: #888;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+#players {
+  list-style: none;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#players li {
+  padding: 8px 16px;
+  border: 2px solid;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+#startBtn, #restartBtn {
+  padding: 16px 48px;
+  font-size: 20px;
+  font-family: 'Courier New', monospace;
+  background: #00ff88;
+  color: #0a0a1a;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.1s;
+}
+
+#startBtn:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+#startBtn:not(:disabled):hover, #restartBtn:hover {
+  transform: scale(1.05);
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#waveAnnouncement {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  color: #ff4444;
+  text-shadow: 0 0 20px #ff444466;
+  opacity: 0;
+  transition: opacity 0.5s;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Game Over */
+#gameOver {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #0a0a1aee;
+  z-index: 20;
+}
+
+#gameOver h1 {
+  font-size: 40px;
+  color: #00ff88;
+  text-shadow: 0 0 20px #00ff8866;
+}
+
+#gameOverText {
+  color: #ccc;
+  font-size: 18px;
+  text-align: center;
+  max-width: 500px;
+}
+
+#gameOverStats {
+  color: #aaa;
+  font-size: 14px;
+  text-align: left;
+  white-space: pre;
+  margin: 16px 0;
+}

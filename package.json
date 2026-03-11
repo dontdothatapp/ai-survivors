@@ -1,0 +1,13 @@
+{
+  "name": "ai-survivors",
+  "version": "1.0.0",
+  "description": "Multiplayer Vampire Survivors parody — software engineers vs AI",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AI SURVIVORS — Controller</title>
+  <link rel="stylesheet" href="css/controller.css">
+</head>
+<body>
+  <div id="connecting">
+    <h1>AI SURVIVORS</h1>
+    <p>Connecting...</p>
+  </div>
+  <div id="controllerUI" style="display:none">
+    <div id="playerInfo">
+      <span id="playerName">Player</span>
+      <div id="hpBar"><div id="hpFill"></div></div>
+      <div id="xpBar"><div id="xpFill"></div></div>
+      <span id="levelText">Lv 1</span>
+    </div>
+    <canvas id="joystickCanvas"></canvas>
+  </div>
+  <div id="upgradeUI" style="display:none">
+    <h2>LEVEL UP!</h2>
+    <div id="upgradeOptions"></div>
+  </div>
+  <div id="deadUI" style="display:none">
+    <h2 id="deadMessage">PR Rejected by the Universe</h2>
+    <p>Spectating...</p>
+  </div>
+  <script type="module" src="js/controller/controller.js"></script>
+</body>
+</html>

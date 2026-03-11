@@ -1,0 +1,157 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a1a;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#connecting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+}
+
+#connecting h1 {
+  font-size: 28px;
+  color: #00ff88;
+}
+
+/* Controller UI */
+#controllerUI {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#playerInfo {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+#playerName {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+#hpBar, #xpBar {
+  flex: 1;
+  height: 14px;
+  background: #222;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+#hpFill {
+  height: 100%;
+  background: #ff4444;
+  width: 100%;
+  transition: width 0.2s;
+}
+
+#xpFill {
+  height: 100%;
+  background: #44aaff;
+  width: 0%;
+  transition: width 0.2s;
+}
+
+#levelText {
+  font-size: 14px;
+  color: #888;
+  white-space: nowrap;
+}
+
+#joystickCanvas {
+  flex: 1;
+  width: 100%;
+  display: block;
+}
+
+/* Upgrade UI */
+#upgradeUI {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+#upgradeUI h2 {
+  font-size: 28px;
+  color: #ffcc00;
+  text-shadow: 0 0 10px #ffcc0066;
+}
+
+#upgradeOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.upgrade-btn {
+  padding: 20px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border: 2px solid #333;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.upgrade-btn:active {
+  transform: scale(0.97);
+  border-color: #00ff88;
+}
+
+.upgrade-btn .name {
+  display: block;
+  font-weight: bold;
+  color: #00ff88;
+  margin-bottom: 4px;
+}
+
+.upgrade-btn .desc {
+  display: block;
+  font-size: 13px;
+  color: #888;
+}
+
+/* Dead UI */
+#deadUI {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+#deadUI h2 {
+  font-size: 24px;
+  color: #ff4444;
+  text-align: center;
+}
+
+#deadUI p {
+  color: #666;
+}
