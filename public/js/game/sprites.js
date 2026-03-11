@@ -148,6 +148,26 @@ export function getEnemySprite(type) {
         px(ctx, 3, 1, s, '#fff');
         px(ctx, 4, 1, s, '#fff');
         break;
+      case 'ceo':
+        // CEO — black suit, grand 3-point crown, gold tie
+        ctx.fillStyle = '#111122'; // dark suit
+        ctx.fillRect(2*s, 2*s, 4*s, 5*s);
+        ctx.fillRect(3*s, s, 2*s, 2*s); // head
+        // 3-pointed crown
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(2*s, s, 4*s, s/2); // crown base
+        ctx.fillRect(2*s, 0, s, s);     // left spike
+        ctx.fillRect(3.5*s, 0, s, s);   // middle spike
+        ctx.fillRect(5*s, 0, s, s);     // right spike
+        // Eyes
+        ctx.fillStyle = '#fff';
+        px(ctx, 3, 2, s, '#fff');
+        px(ctx, 4, 2, s, '#fff');
+        // Gold tie
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(3*s + s/4, 4*s, s/2, 3*s);
+        break;
+
       case 'boss':
         // THE AI — big, red/purple
         ctx.fillStyle = '#ff2266';

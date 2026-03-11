@@ -253,6 +253,42 @@ function gameLoop(timestamp) {
     return;
   }
 
+  // Advance wave manager (handles sprint pause countdown internally)
+  const wasSprintPaused = waveManager.sprintPauseActive;
+  waveManager.update(dt, enemies, players, 0, 0);
+
+  // When sprint pause just ended, spawn the featured enemy near players
+  if (wasSprintPaused && !waveManager.sprintPauseActive && waveManager.newEnemy) {
+    let cx = 0, cy = 0, count = 0;
+    for (const p of players) {
+      if (p.alive) { cx += p.x; cy += p.y; count++; }
+    }
+    if (count > 0) { cx /= count; cy /= count; }
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 450 + Math.random() * 150;
+    spawnEnemy(waveManager.newEnemy.type, cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist);
+  }
+
+  // Sprint start pause — freeze game, show announcement
+  if (waveManager.sprintPauseActive) {
+    renderer.updateCamera(players, dt);
+    renderer.render({
+      players, enemies, projectiles, xpGems,
+      wave: waveManager.currentWave,
+      gameTime,
+      sprintPause: true,
+      sprintMessage: waveManager.waveMessage,
+      sprintNewEnemy: waveManager.newEnemy,
+      sprintPauseTimer: waveManager.sprintPauseTimer,
+    });
+    stateBroadcastTimer -= dt;
+    if (stateBroadcastTimer <= 0) {
+      stateBroadcastTimer = 0.2;
+      network.broadcastState(players);
+    }
+    return;
+  }
+
   gameTime += dt;
 
   // Debug keyboard input for player -1
@@ -447,9 +483,6 @@ function gameLoop(timestamp) {
       }
     }
   }
-
-  // Wave manager
-  waveManager.update(dt, enemies, players, 0, 0);
 
   // Wave announcement
   if (waveManager.waveMessageTimer > 0) {

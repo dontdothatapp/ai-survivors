@@ -1,28 +1,25 @@
 // Wave spawning & progression
 import { Enemy } from './entities.js';
 
-const WAVE_DURATION = 30; // seconds per wave
+const WAVE_DURATION = 45; // seconds per sprint
+
+const SPRINT_NEW_ENEMY = {
+  1: { type: 'jira', name: 'Jira Ticket' },
+  2: { type: 'bug',  name: 'Bug Report' },
+  3: { type: 'pm',   name: 'Product Manager' },
+  4: { type: 'em',   name: 'Engineering Manager' },
+  5: { type: 'vp',   name: 'VP of Engineering' },
+  6: { type: 'ceo',  name: 'CEO' },
+  7: { type: 'boss', name: 'THE AI' },
+};
 
 const WAVE_MESSAGES = [
   'Sprint 1 begins... The backlog grows.',
-  'Sprint 2... "Can we just add one more thing?"',
-  'Sprint 3... The bugs are multiplying.',
-  'Sprint 4... Something feels off about this codebase.',
-  'Sprint 5... A wild Product Manager appears!',
-  'Sprint 6... The stand-ups are getting longer.',
-  'Sprint 7... "We need to pivot."',
-  'Sprint 8... Merge conflicts everywhere!',
-  'Sprint 9... The CI pipeline is on fire.',
-  'Sprint 10... "Let\'s rewrite it in Rust."',
-  'Sprint 11... The tech debt is sentient now.',
-  'Sprint 12... The VP has "ideas".',
-  'Sprint 13... "Can we make it more AI-powered?"',
-  'Sprint 14... The codebase has achieved consciousness.',
-  'Sprint 15... All hands meeting. It\'s bad.',
-  'Sprint 16... "We\'re pivoting to AI."',
-  'Sprint 17... The servers are burning.',
-  'Sprint 18... "Ship it, we\'ll fix it later."',
-  'Sprint 19... The calm before the storm.',
+  'Sprint 2... The bugs are multiplying.',
+  'Sprint 3... A wild Product Manager appears!',
+  'Sprint 4... The Engineering Manager wants a word.',
+  'Sprint 5... The VP has "ideas".',
+  'Sprint 6... The CEO has entered the building.',
   'FINAL SPRINT... THE AI HAS AWAKENED.',
 ];
 
@@ -37,6 +34,9 @@ export class WaveManager {
     this.totalKills = 0;
     this.waveMessage = '';
     this.waveMessageTimer = 0;
+    this.sprintPauseActive = false;
+    this.sprintPauseTimer = 0;
+    this.newEnemy = null;
   }
 
   start() {
@@ -47,6 +47,16 @@ export class WaveManager {
 
   update(dt, enemies, players, arenaWidth, arenaHeight) {
     if (!this.active) return;
+
+    // Sprint pause countdown — block all wave logic
+    if (this.sprintPauseActive) {
+      this.sprintPauseTimer -= dt;
+      if (this.sprintPauseTimer <= 0) {
+        this.sprintPauseActive = false;
+        this.waveMessageTimer = 0; // already shown in overlay, don't repeat via HTML
+      }
+      return;
+    }
 
     this.waveTimer -= dt;
     if (this.waveMessageTimer > 0) this.waveMessageTimer -= dt;
@@ -60,12 +70,15 @@ export class WaveManager {
     }
 
     // Next wave
-    if (this.waveTimer <= 0 && this.currentWave < 20) {
+    if (this.waveTimer <= 0 && this.currentWave < 7) {
       this.currentWave++;
       this.waveTimer = WAVE_DURATION;
       this.spawnTimer = 0;
       this.waveMessage = WAVE_MESSAGES[this.currentWave - 1] || `Sprint ${this.currentWave}...`;
       this.waveMessageTimer = 3;
+      this.newEnemy = SPRINT_NEW_ENEMY[this.currentWave] || null;
+      this.sprintPauseActive = true;
+      this.sprintPauseTimer = 5;
     }
 
     if (this.currentWave === 0) return;
@@ -75,55 +88,41 @@ export class WaveManager {
     if (this.spawnTimer <= 0) {
       this._spawnWaveEnemies(enemies, players, arenaWidth, arenaHeight);
       // Spawn rate increases with wave
-      this.spawnTimer = Math.max(0.5, 3 - this.currentWave * 0.12);
+      this.spawnTimer = Math.max(0.8, 3 - this.currentWave * 0.25);
     }
   }
 
   _spawnWaveEnemies(enemies, players, aw, ah) {
     const wave = this.currentWave;
-    const count = Math.min(2 + Math.floor(wave / 2), 8);
 
+    // Boss wave — spawn boss once, then stop
+    if (wave >= 7) {
+      if (!this.bossSpawned) {
+        this.bossSpawned = true;
+        const pos = this._spawnPosition(players, aw, ah);
+        enemies.push(new Enemy('boss', pos.x, pos.y, wave));
+      }
+      return;
+    }
+
+    const count = Math.min(1 + wave, 6);
     for (let i = 0; i < count; i++) {
       const type = this._pickEnemyType(wave);
       if (!type) continue;
       const pos = this._spawnPosition(players, aw, ah);
       enemies.push(new Enemy(type, pos.x, pos.y, wave));
     }
-
-    // Elite spawns
-    if (wave === 5 || (wave > 5 && wave % 4 === 1)) {
-      const pos = this._spawnPosition(players, aw, ah);
-      enemies.push(new Enemy('pm', pos.x, pos.y, wave));
-    }
-    if (wave === 8 || (wave > 8 && wave % 4 === 0)) {
-      const pos = this._spawnPosition(players, aw, ah);
-      enemies.push(new Enemy('em', pos.x, pos.y, wave));
-    }
-    if (wave === 12 || (wave > 12 && wave % 5 === 2)) {
-      const pos = this._spawnPosition(players, aw, ah);
-      enemies.push(new Enemy('vp', pos.x, pos.y, wave));
-    }
-
-    // Boss on wave 20
-    if (wave >= 20 && !this.bossSpawned) {
-      this.bossSpawned = true;
-      const pos = this._spawnPosition(players, aw, ah);
-      enemies.push(new Enemy('boss', pos.x, pos.y, wave));
-    }
   }
 
   _pickEnemyType(wave) {
-    const pool = ['jira'];
-    if (wave >= 4) pool.push('bug');
-    if (wave >= 5) pool.push('feature');
-    if (wave >= 8) pool.push('merge');
-    if (wave >= 12) pool.push('flaky');
-
-    // Weight later types
-    if (wave >= 15) {
-      pool.push('bug', 'feature', 'merge', 'flaky');
-    }
-
+    // Common minions (heavily weighted)
+    const pool = ['jira', 'jira', 'jira'];
+    if (wave >= 2) pool.push('bug', 'bug', 'bug');
+    // Elites (rare)
+    if (wave >= 3) pool.push('pm');
+    if (wave >= 4) pool.push('em');
+    if (wave >= 5) pool.push('vp');
+    if (wave >= 6) pool.push('ceo');
     return pool[Math.floor(Math.random() * pool.length)];
   }
 

@@ -81,8 +81,10 @@ AI_survivors/
 ## Game Loop (`main.js`)
 
 Each frame:
-1. **Pause check** — if any player has `pendingUpgrade`, skip simulation, render with pause overlay
-2. Player `update(dt)` — apply joystick input, move, update duck orbit angle
+1. **Upgrade pause check** — if any player has `pendingUpgrade`, skip simulation, render with pause overlay
+2. `WaveManager.update()` — ticks sprint timer; if sprint pause active, counts down and returns early
+3. **Sprint pause check** — if new sprint just started (5s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
+4. Player `update(dt)` — apply joystick input, move, update duck orbit angle
 3. Soft player-player collision (push apart)
 4. Coffee aura boost (temporarily bumps `fireRateMultiplier`)
 5. `updateWeapons(dt, player, projectiles, enemies)` for each player
@@ -91,8 +93,7 @@ Each frame:
 8. Projectile update + enemy collision detection
 9. Enemy-player contact damage
 10. XP gem magnet + collection → level-up trigger
-11. `WaveManager.update()` — timer, spawn new enemies
-12. Cleanup dead entities
+11. Cleanup dead entities
 13. Game-over check (all dead / boss defeated)
 14. Camera update → clamp players to viewport → render
 15. Broadcast state to phones (5 Hz)
@@ -117,15 +118,13 @@ Each frame:
 |------|----|-------|-------|
 | `jira` | 15 | 60 | Basic walker |
 | `bug` | 10 | 110 | Zigzag movement |
-| `feature` | 40 | 40 | Splits into 2 JIRAs on death |
-| `merge` | 80 | 30 | Tanky |
-| `flaky` | 12 | 50 | Teleports every 2s |
 | `pm` | 150 | 35 | Elite — spawns JIRA tickets every 4s |
 | `em` | 200 | 30 | Elite — pulls players every 5s |
 | `vp` | 300 | 25 | Elite — shuffles player positions + spawns minions |
+| `ceo` | 600 | 20 | Elite — spawns 2 PMs every 6s + reorg scatters players every 12s |
 | `boss` | 2000+ | 20 | 3 phases (see below) |
 
-### Boss — THE AI (wave 20)
+### Boss — THE AI (sprint 7)
 - **Phase 1** (>66% HP): spawns enemy clusters every 4s
 - **Phase 2** (33–66%): hallucination — spawns 4 flaky enemies every 1.5s
 - **Phase 3** (<33%): rearranges player positions, spawns bugs every 2s, speed bumps to 35
@@ -166,13 +165,27 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 
 ## Wave Progression (`waves.js`)
 
-- **WaveManager** ticks every 30s, `currentWave` 1–20
-- Each tick: spawn `min(2 + wave/2, 8)` enemies + elite check
-- Elite spawns: PM at wave 5+, EM at wave 8+, VP at wave 12+
-- Boss spawns once at wave 20 (`bossSpawned` flag)
-- Enemy type pool expands: bugs (w4), features (w5), merges (w8), flakies (w12)
+- **7 sprints**, 45s each. Each sprint introduces one new enemy type.
+- On sprint start: 5-second pause showing the sprint title + new enemy preview (sprite + name)
+- After the pause, the featured enemy spawns immediately near players
+- Enemy pool unlocks per sprint: jira (s1), bug (s2), pm (s3), em (s4), vp (s5), ceo (s6)
+- Pool weights: jira/bug are common (3× weight), elites are rare (1× each)
+- Boss spawns once at sprint 7 (`bossSpawned` flag); no other enemies spawn that sprint
+- Spawn count: `min(1 + wave, 6)` per batch; rate `max(0.8, 3 - wave * 0.25)` seconds
 - Spawn position: random angle, 500–700px from player centroid (off-screen)
 - All stats scale by `1 + (wave - 1) * 0.05`
+
+### Sprint Progression
+
+| Sprint | New Enemy | Message |
+|--------|-----------|---------|
+| 1 | Jira Ticket | "Sprint 1 begins... The backlog grows." |
+| 2 | Bug Report | "The bugs are multiplying." |
+| 3 | Product Manager | "A wild Product Manager appears!" |
+| 4 | Engineering Manager | "The Engineering Manager wants a word." |
+| 5 | VP of Engineering | "The VP has 'ideas'." |
+| 6 | CEO | "The CEO has entered the building." |
+| 7 | THE AI (boss) | "FINAL SPRINT... THE AI HAS AWAKENED." |
 
 ---
 
@@ -203,7 +216,8 @@ XP formula: `xpToNext = 10 + level * 5`
 - Floating texts: world-space, rise + fade over ~0.8s
 - Sprites: programmatic pixel art cached to offscreen canvases (`sprites.js`)
 - HUD: wave/time top-left, engineer count top-right, mini HP bars per player
-- Pause overlay: semi-transparent black + "LEVEL UP!" + player name/color
+- Upgrade pause overlay: semi-transparent black + "LEVEL UP!" + player name/color
+- Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
 
 ---
 

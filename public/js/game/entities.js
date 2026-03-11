@@ -193,6 +193,14 @@ export class Enemy {
         this.xpValue = 50;
         this.radius = 24;
         break;
+      case 'ceo':
+        this.hp = 600 * scale;
+        this.maxHp = this.hp;
+        this.speed = 20;
+        this.damage = 20;
+        this.xpValue = 80;
+        this.radius = 26;
+        break;
       case 'boss':
         this.hp = 2000 + wave * 100;
         this.maxHp = this.hp;
@@ -304,6 +312,29 @@ export class Enemy {
               const angle = (Math.PI * 2 / 3) * i;
               spawnEnemy('jira', this.x + Math.cos(angle) * 40, this.y + Math.sin(angle) * 40);
             }
+          }
+        }
+        break;
+
+      case 'ceo':
+        this._moveToward(nearest, dt);
+        // Spawn PM minions periodically
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0 && spawnEnemy) {
+          this.spawnTimer = 6;
+          for (let i = 0; i < 2; i++) {
+            const angle = (Math.PI * 2 / 2) * i;
+            spawnEnemy('pm', this.x + Math.cos(angle) * 50, this.y + Math.sin(angle) * 50);
+          }
+        }
+        // Reorg — scatter all players
+        this.shuffleTimer -= dt;
+        if (this.shuffleTimer <= 0) {
+          this.shuffleTimer = 12;
+          for (const p of players) {
+            if (!p.alive) continue;
+            p.x += (Math.random() - 0.5) * 500;
+            p.y += (Math.random() - 0.5) * 500;
           }
         }
         break;

@@ -115,6 +115,11 @@ export class Renderer {
     // HUD overlay
     this._drawHUD(state);
 
+    // Sprint announcement overlay
+    if (state.sprintPause) {
+      this._drawSprintAnnouncement(state);
+    }
+
     // Pause overlay
     if (state.paused && state.pausedPlayer) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -127,6 +132,48 @@ export class Renderer {
       ctx.font = '18px "Courier New"';
       ctx.fillText(`${state.pausedPlayer.name} is choosing an upgrade...`, this.width / 2, this.height / 2 + 16);
     }
+  }
+
+  _drawSprintAnnouncement(state) {
+    const { ctx, width, height } = this;
+    const { sprintMessage, sprintNewEnemy, sprintPauseTimer } = state;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    // Dark overlay
+    ctx.fillStyle = 'rgba(0, 0, 10, 0.82)';
+    ctx.fillRect(0, 0, width, height);
+
+    // Sprint title
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 28px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(sprintMessage, cx, cy - 90);
+
+    if (sprintNewEnemy) {
+      // Warning label
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 16px "Courier New"';
+      ctx.fillText('[ NEW THREAT DETECTED ]', cx, cy - 48);
+
+      // Enemy sprite scaled up (pixel art — disable smoothing)
+      const sprite = getEnemySprite(sprintNewEnemy.type);
+      const spriteSize = sprintNewEnemy.type === 'boss' ? 128 : 96;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sprite, cx - spriteSize / 2, cy - 36, spriteSize, spriteSize);
+      ctx.imageSmoothingEnabled = true;
+
+      // Enemy name
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px "Courier New"';
+      ctx.fillText(sprintNewEnemy.name, cx, cy + spriteSize - 24);
+    }
+
+    // Countdown
+    const secs = Math.ceil(sprintPauseTimer);
+    ctx.fillStyle = '#555';
+    ctx.font = '13px "Courier New"';
+    ctx.fillText(`Starting in ${secs}...`, cx, cy + 130);
   }
 
   _drawGrid() {
@@ -228,7 +275,7 @@ export class Renderer {
     ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size);
 
     // HP bar for elites and boss
-    if (type === 'pm' || type === 'em' || type === 'vp' || type === 'boss') {
+    if (type === 'pm' || type === 'em' || type === 'vp' || type === 'ceo' || type === 'boss') {
       const barW = type === 'boss' ? 60 : 36;
       const barH = 4;
       const barY = y - size / 2 - 6;
