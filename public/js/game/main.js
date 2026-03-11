@@ -6,6 +6,7 @@ import { rollUpgrades, applyUpgrade } from './upgrades.js';
 import { Renderer } from './renderer.js';
 import * as network from './network.js';
 import * as sound from './sound.js';
+import { GAME_CONFIG, saveConfig, resetConfig } from './config.js';
 
 // --- State ---
 const canvas = document.getElementById('gameCanvas');
@@ -32,6 +33,66 @@ const startBtn = document.getElementById('startBtn');
 const playersUl = document.getElementById('players');
 const joinUrlEl = document.getElementById('joinUrl');
 const waveAnnouncementEl = document.getElementById('waveAnnouncement');
+
+// --- Admin Panel ---
+const adminBtn = document.getElementById('adminBtn');
+const adminPanel = document.getElementById('adminPanel');
+const adminCloseBtn = document.getElementById('adminCloseBtn');
+const adminSaveBtn = document.getElementById('adminSaveBtn');
+const adminResetBtn = document.getElementById('adminResetBtn');
+
+const ENEMY_LABELS = {
+  jira: 'Jira Ticket',
+  bug: 'Bug Report',
+  pm: 'Product Manager',
+  em: 'Engineering Manager',
+  vp: 'VP of Engineering',
+  ceo: 'CEO',
+  boss: 'THE AI (boss base HP)',
+};
+
+function openAdminPanel() {
+  // Populate fields from current config
+  for (const [key, label] of Object.entries(ENEMY_LABELS)) {
+    const el = document.getElementById(`admin-hp-${key}`);
+    if (el) el.value = GAME_CONFIG.enemyHp[key];
+  }
+  document.getElementById('admin-kills-per-sprint').value = GAME_CONFIG.killsPerSprint;
+  document.getElementById('admin-xp-multiplier').value = GAME_CONFIG.xpMultiplier;
+  adminPanel.style.display = 'flex';
+}
+
+function closeAdminPanel() {
+  adminPanel.style.display = 'none';
+}
+
+function saveAdminPanel() {
+  for (const key of Object.keys(ENEMY_LABELS)) {
+    const el = document.getElementById(`admin-hp-${key}`);
+    if (el) {
+      const val = parseInt(el.value, 10);
+      if (!isNaN(val) && val > 0) GAME_CONFIG.enemyHp[key] = val;
+    }
+  }
+  const killsEl = document.getElementById('admin-kills-per-sprint');
+  const killsVal = parseInt(killsEl.value, 10);
+  if (!isNaN(killsVal) && killsVal >= 0) GAME_CONFIG.killsPerSprint = killsVal;
+
+  const xpEl = document.getElementById('admin-xp-multiplier');
+  const xpVal = parseFloat(xpEl.value);
+  if (!isNaN(xpVal) && xpVal >= 1) GAME_CONFIG.xpMultiplier = xpVal;
+
+  saveConfig();
+  closeAdminPanel();
+}
+
+adminBtn.addEventListener('click', openAdminPanel);
+adminCloseBtn.addEventListener('click', closeAdminPanel);
+adminSaveBtn.addEventListener('click', saveAdminPanel);
+adminResetBtn.addEventListener('click', () => {
+  resetConfig();
+  openAdminPanel(); // re-open to show reset values
+});
 
 // QR code
 function generateQRUrl() {
@@ -541,6 +602,7 @@ function onEnemyKilled(enemy, killer) {
   renderer.addFloatingText(enemy.x, enemy.y - 10, `-${enemy.maxHp} LOC deleted`, '#ffcc44');
   renderer.addScreenShake(3, 0.1);
   waveManager.totalKills++;
+  waveManager.sprintKills++;
 
   if (killer) killer.kills++;
 

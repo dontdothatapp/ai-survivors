@@ -1,4 +1,5 @@
 // Entity classes — Player, Enemy, Projectile, XPGem
+import { GAME_CONFIG } from './config.js';
 
 const PLAYER_COLORS = ['#ff4466', '#44bbff', '#44ff88', '#ffcc44', '#ff88ff', '#88ffff', '#ffaa44', '#aa88ff'];
 const PLAYER_NAMES = ['Junior Dev', 'The Intern', 'Staff Engineer', '10x Engineer', 'DevOps Guru', 'Script Kiddie', 'Legacy Code Owner', 'The Architect'];
@@ -33,7 +34,7 @@ export class Player {
     this.name = PLAYER_NAMES[id % PLAYER_NAMES.length];
     this.xp = 0;
     this.level = 1;
-    this.xpToNext = 15;
+    this.xpToNext = Math.round(15 * Math.pow(GAME_CONFIG.xpMultiplier, 0));
     this.weapons = [{ type: 'code_review', cooldown: 0 }];
     this.damageMultiplier = 1;
     this.fireRateMultiplier = 1;
@@ -90,7 +91,7 @@ export class Player {
     if (this.xp >= this.xpToNext) {
       this.xp -= this.xpToNext;
       this.level++;
-      this.xpToNext = 10 + this.level * 5;
+      this.xpToNext = Math.round(15 * Math.pow(GAME_CONFIG.xpMultiplier, this.level - 1));
       return true; // leveled up
     }
     return false;
@@ -131,16 +132,17 @@ export class Enemy {
 
     // Set stats by type
     const scale = 1 + (wave - 1) * 0.05; // slight scaling with wave
+    const cfg = GAME_CONFIG.enemyHp;
     switch (type) {
       case 'jira':
-        this.hp = 15 * scale;
+        this.hp = (cfg.jira ?? 15) * scale;
         this.maxHp = this.hp;
         this.speed = 60;
         this.damage = 8;
         this.xpValue = 3;
         break;
       case 'bug':
-        this.hp = 10 * scale;
+        this.hp = (cfg.bug ?? 10) * scale;
         this.maxHp = this.hp;
         this.speed = 110;
         this.damage = 6;
@@ -170,7 +172,7 @@ export class Enemy {
         this.xpValue = 5;
         break;
       case 'pm':
-        this.hp = 150 * scale;
+        this.hp = (cfg.pm ?? 150) * scale;
         this.maxHp = this.hp;
         this.speed = 35;
         this.damage = 10;
@@ -178,7 +180,7 @@ export class Enemy {
         this.radius = 22;
         break;
       case 'em':
-        this.hp = 200 * scale;
+        this.hp = (cfg.em ?? 200) * scale;
         this.maxHp = this.hp;
         this.speed = 30;
         this.damage = 10;
@@ -186,7 +188,7 @@ export class Enemy {
         this.radius = 22;
         break;
       case 'vp':
-        this.hp = 300 * scale;
+        this.hp = (cfg.vp ?? 300) * scale;
         this.maxHp = this.hp;
         this.speed = 25;
         this.damage = 15;
@@ -194,7 +196,7 @@ export class Enemy {
         this.radius = 24;
         break;
       case 'ceo':
-        this.hp = 600 * scale;
+        this.hp = (cfg.ceo ?? 600) * scale;
         this.maxHp = this.hp;
         this.speed = 20;
         this.damage = 20;
@@ -202,7 +204,7 @@ export class Enemy {
         this.radius = 26;
         break;
       case 'boss':
-        this.hp = 2000 + wave * 100;
+        this.hp = (cfg.boss ?? 2000) + wave * 100;
         this.maxHp = this.hp;
         this.speed = 20;
         this.damage = 20;

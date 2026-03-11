@@ -105,6 +105,152 @@ body {
   transform: scale(1.05);
 }
 
+/* Admin button in lobby */
+.admin-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  background: transparent;
+  color: #555;
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.admin-btn:hover {
+  color: #00ff88;
+  border-color: #00ff88;
+}
+
+/* Admin Panel overlay */
+#adminPanel {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+}
+
+#adminModal {
+  background: #0f0f20;
+  border: 1px solid #00ff8844;
+  border-radius: 12px;
+  padding: 28px 36px;
+  width: min(560px, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#adminModal h2 {
+  font-size: 22px;
+  color: #00ff88;
+  text-shadow: 0 0 12px #00ff8855;
+}
+
+#adminModal h3 {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#adminModal section {
+  border-top: 1px solid #1e1e3a;
+  padding-top: 16px;
+}
+
+.admin-hint {
+  font-size: 12px;
+  color: #555;
+  margin-top: -12px;
+}
+
+.admin-sub {
+  color: #555;
+  font-size: 11px;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  align-items: center;
+}
+
+.admin-grid label {
+  font-size: 13px;
+  color: #ccc;
+}
+
+.admin-grid input {
+  width: 100px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  background: #0a0a1a;
+  color: #00ff88;
+  border: 1px solid #333;
+  border-radius: 6px;
+  text-align: right;
+  outline: none;
+}
+
+.admin-grid input:focus {
+  border-color: #00ff8866;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.admin-save-btn, .admin-cancel-btn, .admin-reset-btn {
+  padding: 10px 22px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.1s;
+}
+
+.admin-save-btn {
+  background: #00ff88;
+  color: #0a0a1a;
+}
+
+.admin-cancel-btn {
+  background: #222;
+  color: #888;
+  border: 1px solid #333;
+}
+
+.admin-reset-btn {
+  background: transparent;
+  color: #ff4444;
+  border: 1px solid #ff444455;
+  margin-right: auto;
+}
+
+.admin-save-btn:hover { transform: scale(1.05); }
+.admin-cancel-btn:hover { color: #ccc; }
+.admin-reset-btn:hover { border-color: #ff4444; }
+
 /* HUD */
 #hud {
   position: absolute;

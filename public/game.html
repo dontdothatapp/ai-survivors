@@ -21,6 +21,57 @@
       <ul id="players"></ul>
     </div>
     <button id="startBtn" disabled>START GAME</button>
+    <button id="adminBtn" class="admin-btn">⚙ ADMIN</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel">
+    <div id="adminModal">
+      <h2>Admin Panel</h2>
+      <p class="admin-hint">Settings are saved and used as defaults for future sessions.</p>
+
+      <section>
+        <h3>Enemy Base HP <span class="admin-sub">(scales +5% per wave)</span></h3>
+        <div class="admin-grid">
+          <label>Jira Ticket</label>
+          <input id="admin-hp-jira" type="number" min="1" step="1">
+          <label>Bug Report</label>
+          <input id="admin-hp-bug" type="number" min="1" step="1">
+          <label>Product Manager</label>
+          <input id="admin-hp-pm" type="number" min="1" step="1">
+          <label>Engineering Manager</label>
+          <input id="admin-hp-em" type="number" min="1" step="1">
+          <label>VP of Engineering</label>
+          <input id="admin-hp-vp" type="number" min="1" step="1">
+          <label>CEO</label>
+          <input id="admin-hp-ceo" type="number" min="1" step="1">
+          <label>THE AI (boss base)</label>
+          <input id="admin-hp-boss" type="number" min="1" step="100">
+        </div>
+      </section>
+
+      <section>
+        <h3>Sprint Progression</h3>
+        <div class="admin-grid">
+          <label>Kills to advance sprint <span class="admin-sub">(0 = time-based)</span></label>
+          <input id="admin-kills-per-sprint" type="number" min="0" step="1">
+        </div>
+      </section>
+
+      <section>
+        <h3>XP Scaling</h3>
+        <div class="admin-grid">
+          <label>XP multiplier per level <span class="admin-sub">(e.g. 1.5 = each level needs 1.5× more XP)</span></label>
+          <input id="admin-xp-multiplier" type="number" min="1" max="5" step="0.05">
+        </div>
+      </section>
+
+      <div class="admin-actions">
+        <button id="adminResetBtn" class="admin-reset-btn">RESET DEFAULTS</button>
+        <button id="adminCloseBtn" class="admin-cancel-btn">CANCEL</button>
+        <button id="adminSaveBtn" class="admin-save-btn">SAVE</button>
+      </div>
+    </div>
   </div>
   <div id="hud" style="display:none">
     <div id="waveAnnouncement"></div>

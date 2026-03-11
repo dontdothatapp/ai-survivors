@@ -32,6 +32,7 @@ AI_survivors/
         │   ├── waves.js    # WaveManager — enemy spawning & progression
         │   ├── weapons.js  # WEAPON_DEFS + updateWeapons()
         │   ├── upgrades.js # Upgrade pool + rollUpgrades() / applyUpgrade()
+        │   ├── config.js   # GAME_CONFIG — persistent admin settings (localStorage)
         │   ├── sprites.js  # Programmatic pixel art (offscreen canvas cache)
         │   ├── sound.js    # Web Audio API oscillator-based retro beeps
         │   └── network.js  # Game-screen WebSocket client + broadcast helpers
@@ -165,7 +166,7 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 
 ## Wave Progression (`waves.js`)
 
-- **7 sprints**, 45s each. Each sprint introduces one new enemy type.
+- **7 sprints**, 45s each (or fewer kills — see Admin Panel). Each sprint introduces one new enemy type.
 - On sprint start: 5-second pause showing the sprint title + new enemy preview (sprite + name)
 - After the pause, the featured enemy spawns immediately near players
 - Enemy pool unlocks per sprint: jira (s1), bug (s2), pm (s3), em (s4), vp (s5), ceo (s6)
@@ -205,7 +206,7 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 | `aoe` | "Scope creep" | `aoeMultiplier += 0.25` |
 | `multishot` | "Pair programming" | `projectileCount += 1` — fire an extra projectile per shot |
 
-XP formula: `xpToNext = 10 + level * 5`
+XP formula: `xpToNext = Math.round(15 × xpMultiplier^(level-1))` — exponential scaling controlled by `GAME_CONFIG.xpMultiplier` (default 1.5)
 
 ---
 
@@ -230,6 +231,22 @@ XP formula: `xpToNext = 10 + level * 5`
 - **Victory**: "You have been... not replaced. For now."
 - **Game over**: "Your job is safe... until the next reorg."
 - **Upgrade names**: "Learn a new framework", "Work-life balance", "Agile methodology"
+
+---
+
+---
+
+## Admin Panel
+
+Accessible via the **⚙ ADMIN** button on the lobby screen. Settings persist in `localStorage` and become the new defaults for all future sessions.
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Enemy Base HP** | Per-type HP before wave scaling (+5%/wave). Covers jira, bug, pm, em, vp, ceo, boss. | See entity table above |
+| **Kills to advance sprint** | Number of kills in the current sprint that trigger the next sprint early. `0` = time-based only (45s). | 0 |
+| **XP multiplier** | Each level-up requires this multiple of the previous threshold. `1.5` → Lv2 needs 23 XP, Lv3 needs 34, etc. | 1.5 |
+
+`RESET DEFAULTS` restores all values and clears localStorage.
 
 ---
 
