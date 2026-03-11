@@ -274,41 +274,14 @@ export class Enemy {
 
       case 'em':
         this._moveToward(nearest, dt);
-        // Pull players toward self
-        this.pullTimer -= dt;
-        if (this.pullTimer <= 0) {
-          this.pullTimer = 5;
-          for (const p of players) {
-            if (!p.alive) continue;
-            const d = Math.hypot(p.x - this.x, p.y - this.y);
-            if (d < 250) {
-              const dx = this.x - p.x;
-              const dy = this.y - p.y;
-              const len = Math.hypot(dx, dy) || 1;
-              p.x += (dx / len) * 40;
-              p.y += (dy / len) * 40;
-            }
-          }
-        }
         break;
 
       case 'vp':
         this._moveToward(nearest, dt);
-        // Shuffle player positions
+        // Spawn process minions
         this.shuffleTimer -= dt;
         if (this.shuffleTimer <= 0) {
           this.shuffleTimer = 10;
-          const alivePlayers = players.filter(p => p.alive);
-          if (alivePlayers.length >= 2) {
-            // Swap random pair
-            const a = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-            let b = a;
-            while (b === a) b = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-            const tx = a.x, ty = a.y;
-            a.x = b.x; a.y = b.y;
-            b.x = tx; b.y = ty;
-          }
-          // Spawn process minions
           if (spawnEnemy) {
             for (let i = 0; i < 3; i++) {
               const angle = (Math.PI * 2 / 3) * i;
@@ -327,16 +300,6 @@ export class Enemy {
           for (let i = 0; i < 2; i++) {
             const angle = (Math.PI * 2 / 2) * i;
             spawnEnemy('pm', this.x + Math.cos(angle) * 50, this.y + Math.sin(angle) * 50);
-          }
-        }
-        // Reorg — scatter all players
-        this.shuffleTimer -= dt;
-        if (this.shuffleTimer <= 0) {
-          this.shuffleTimer = 12;
-          for (const p of players) {
-            if (!p.alive) continue;
-            p.x += (Math.random() - 0.5) * 500;
-            p.y += (Math.random() - 0.5) * 500;
           }
         }
         break;
@@ -379,12 +342,7 @@ export class Enemy {
     if (hpPct < 0.33 && this.phase < 3) {
       this.phase = 3;
       this.phaseTimer = 0;
-      // Phase 3: rearrange arena — shuffle all player positions
-      const alivePlayers = players.filter(p => p.alive);
-      for (const p of alivePlayers) {
-        p.x += (Math.random() - 0.5) * 600;
-        p.y += (Math.random() - 0.5) * 600;
-      }
+      // Phase 3: speed up and spawn swarm (no position manipulation)
     } else if (hpPct < 0.66 && this.phase < 2) {
       this.phase = 2;
       this.phaseTimer = 0;

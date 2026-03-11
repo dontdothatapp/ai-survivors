@@ -96,7 +96,7 @@ Each frame:
 10. XP gem magnet + collection → level-up trigger
 11. Cleanup dead entities
 13. Game-over check (all dead / boss defeated)
-14. Camera update → clamp players to viewport → render
+14. Camera update → soft-pull players toward viewport → render
 15. Broadcast state to phones (5 Hz)
 
 ---
@@ -120,15 +120,15 @@ Each frame:
 | `jira` | 15 | 60 | Basic walker |
 | `bug` | 10 | 110 | Zigzag movement |
 | `pm` | 150 | 35 | Elite — spawns JIRA tickets every 4s |
-| `em` | 200 | 30 | Elite — pulls players every 5s |
-| `vp` | 300 | 25 | Elite — shuffles player positions + spawns minions |
-| `ceo` | 600 | 20 | Elite — spawns 2 PMs every 6s + reorg scatters players every 12s |
+| `em` | 200 | 30 | Elite — chases players |
+| `vp` | 300 | 25 | Elite — spawns 3 jira minions every 10s |
+| `ceo` | 600 | 20 | Elite — spawns 2 PMs every 6s |
 | `boss` | 2000+ | 20 | 3 phases (see below) |
 
 ### Boss — THE AI (sprint 7)
 - **Phase 1** (>66% HP): spawns enemy clusters every 4s
 - **Phase 2** (33–66%): hallucination — spawns 4 flaky enemies every 1.5s
-- **Phase 3** (<33%): rearranges player positions, spawns bugs every 2s, speed bumps to 35
+- **Phase 3** (<33%): spawns bugs every 2s, speed bumps to 35
 
 ### Projectile
 - `vx/vy`, `damage`, `pierce` (decrements per hit), `hitEnemies` Set
@@ -254,7 +254,7 @@ Accessible via the **⚙ ADMIN** button on the lobby screen. Settings persist in
 ## Known Gaps / Future Work
 
 - No actual QR code (shows URL as text instead — needs a QR library or pre-generated image)
-- Players are clamped to the visible viewport after each camera update (no infinite wandering)
+- Players are soft-pulled toward the visible viewport (gentle force, not hard clamp)
 - Debug player (id: -1) auto-picks first upgrade after 1s
 - No persistent scores / leaderboard
 - No sound for wave start beyond wave 1

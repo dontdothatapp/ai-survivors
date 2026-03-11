@@ -521,12 +521,13 @@ function gameLoop(timestamp) {
         } else if (p.invincibleTimer <= 0.3 && p.invincibleTimer > 0.28) {
           sound.playPlayerHit();
         }
-        // Push player away
+        // Push player away (frame-rate independent)
         if (d > 0) {
           const nx = (p.x - e.x) / d;
           const ny = (p.y - e.y) / d;
-          p.x += nx * 2;
-          p.y += ny * 2;
+          const pushSpeed = 120; // pixels per second
+          p.x += nx * pushSpeed * dt;
+          p.y += ny * pushSpeed * dt;
         }
       }
     }
@@ -572,11 +573,19 @@ function gameLoop(timestamp) {
   // Camera & render
   renderer.updateCamera(players, dt);
 
-  // Clamp players to visible viewport
+  // Soft-pull players back toward visible viewport (no hard clamp)
   for (const p of players) {
     if (!p.alive) continue;
-    p.x = Math.max(renderer.camera.x + p.radius, Math.min(renderer.camera.x + renderer.width - p.radius, p.x));
-    p.y = Math.max(renderer.camera.y + p.radius, Math.min(renderer.camera.y + renderer.height - p.radius, p.y));
+    const margin = p.radius;
+    const leftBound = renderer.camera.x + margin;
+    const rightBound = renderer.camera.x + renderer.width - margin;
+    const topBound = renderer.camera.y + margin;
+    const bottomBound = renderer.camera.y + renderer.height - margin;
+    const pullStrength = 8; // pixels per second per pixel of overshoot
+    if (p.x < leftBound) p.x += (leftBound - p.x) * pullStrength * dt;
+    if (p.x > rightBound) p.x += (rightBound - p.x) * pullStrength * dt;
+    if (p.y < topBound) p.y += (topBound - p.y) * pullStrength * dt;
+    if (p.y > bottomBound) p.y += (bottomBound - p.y) * pullStrength * dt;
   }
 
   renderer.render({
