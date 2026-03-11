@@ -477,6 +477,14 @@ function gameLoop(timestamp) {
 
   // Camera & render
   renderer.updateCamera(players, dt);
+
+  // Clamp players to visible viewport
+  for (const p of players) {
+    if (!p.alive) continue;
+    p.x = Math.max(renderer.camera.x + p.radius, Math.min(renderer.camera.x + renderer.width - p.radius, p.x));
+    p.y = Math.max(renderer.camera.y + p.radius, Math.min(renderer.camera.y + renderer.height - p.radius, p.y));
+  }
+
   renderer.render({
     players, enemies, projectiles, xpGems,
     wave: waveManager.currentWave,

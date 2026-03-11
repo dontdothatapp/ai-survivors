@@ -94,7 +94,7 @@ Each frame:
 11. `WaveManager.update()` — timer, spawn new enemies
 12. Cleanup dead entities
 13. Game-over check (all dead / boss defeated)
-14. Camera update + render
+14. Camera update → clamp players to viewport → render
 15. Broadcast state to phones (5 Hz)
 
 ---
@@ -222,7 +222,7 @@ XP formula: `xpToNext = 10 + level * 5`
 ## Known Gaps / Future Work
 
 - No actual QR code (shows URL as text instead — needs a QR library or pre-generated image)
-- No arena boundaries — world is infinite
+- Players are clamped to the visible viewport after each camera update (no infinite wandering)
 - Debug player (id: -1) auto-picks first upgrade after 1s
 - No persistent scores / leaderboard
 - No sound for wave start beyond wave 1
