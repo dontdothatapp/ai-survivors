@@ -332,16 +332,29 @@ function gameLoop(timestamp) {
   for (const p of players) {
     if (!p.alive) continue;
     if (!p.weapons.some(w => w.type === 'rubber_duck')) continue;
+    if (!p._duckHitCooldowns) p._duckHitCooldowns = new Map();
+    // Decrement cooldowns and remove expired
+    for (const [enemy, timer] of p._duckHitCooldowns) {
+      const newTimer = timer - dt;
+      if (newTimer <= 0) p._duckHitCooldowns.delete(enemy);
+      else p._duckHitCooldowns.set(enemy, newTimer);
+    }
     const def = WEAPON_DEFS.rubber_duck;
     const duckX = p.x + Math.cos(p.rubberDuckAngle) * def.orbitRadius;
     const duckY = p.y + Math.sin(p.rubberDuckAngle) * def.orbitRadius;
     for (const e of enemies) {
       if (!e.alive) continue;
+      if (p._duckHitCooldowns.has(e)) continue;
       const d = Math.hypot(e.x - duckX, e.y - duckY);
       if (d < e.radius + 8) {
-        const killed = e.takeDamage(def.orbitDamage * p.damageMultiplier);
+        const damage = def.orbitDamage * p.damageMultiplier;
+        const killed = e.takeDamage(damage);
+        p._duckHitCooldowns.set(e, 0.5);
         if (killed) {
           onEnemyKilled(e, p);
+        } else {
+          sound.playHit();
+          renderer.addFloatingText(e.x, e.y - 10, '-' + Math.floor(damage) + ' LOC', '#ff8844');
         }
       }
     }

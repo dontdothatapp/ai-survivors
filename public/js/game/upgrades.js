@@ -75,6 +75,14 @@ const UPGRADES = [
       player.aoeMultiplier = (player.aoeMultiplier || 1) + 0.25;
     },
   },
+  {
+    id: 'multishot',
+    name: '"Pair programming"',
+    desc: 'Fire an extra projectile per shot',
+    apply(player) {
+      player.projectileCount = (player.projectileCount || 1) + 1;
+    },
+  },
 ];
 
 // Pick n random unique upgrades

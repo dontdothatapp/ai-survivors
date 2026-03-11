@@ -106,6 +106,7 @@ Each frame:
 - Stats: `speed=150`, `radius=14`, `hp/maxHp=100`, `pickupRadius=50`
 - Multipliers: `damageMultiplier`, `fireRateMultiplier`, `aoeMultiplier`
 - `bonusPierce` — added to all projectile pierce values
+- `projectileCount` — number of projectiles fired per shot (1 by default); extras are fanned out at ±0.25 rad intervals around the facing direction
 - `weapons[]` — array of `{type, cooldown}` objects
 - `pendingUpgrade` — true while waiting for upgrade pick (pauses game)
 - `invincibleTimer` — brief i-frames after taking damage (0.3s)
@@ -149,7 +150,7 @@ All defined in `WEAPON_DEFS` in `weapons.js`. Each has `cooldown`, `damage`, `sp
 | `code_review` | 0.5s | Fires in facing direction, pierces 1 |
 | `stackoverflow` | 1.2s | 4 cardinal direction projectiles |
 | `git_revert` | 3s | AOE pulse (radius 80), hits all in range |
-| `rubber_duck` | passive | Orbits player at r=50, contact damage |
+| `rubber_duck` | passive | Orbits player at r=50, contact damage (0.5s cooldown per enemy; shows hit sound + floating text) |
 | `unit_test` | 0.15s | Fast forward volley with slight spread |
 | `hotfix` | 2s | Slow homing projectile, high damage |
 | `coffee` | passive | Aura — +30% fire rate to nearby allies |
@@ -158,6 +159,8 @@ All defined in `WEAPON_DEFS` in `weapons.js`. Each has `cooldown`, `damage`, `sp
 All players start with `code_review`. Additional weapons are gained via the "Learn a new framework" upgrade.
 
 Cooldown is divided by `player.fireRateMultiplier`. Pierce is summed with `player.bonusPierce`.
+
+When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles per shot, fanned out symmetrically around the facing direction (0.25 rad apart). The original facing is restored after firing so there are no side effects on movement or AI. Weapons that ignore facing (e.g. `stackoverflow`) simply fire N times in their fixed pattern.
 
 ---
 
@@ -187,6 +190,7 @@ Cooldown is divided by `player.fireRateMultiplier`. Pierce is summed with `playe
 | `pickup` | "Networking skills" | `pickupRadius *= 1.5` |
 | `pierce` | "Vertical slice" | `bonusPierce += 1` |
 | `aoe` | "Scope creep" | `aoeMultiplier += 0.25` |
+| `multishot` | "Pair programming" | `projectileCount += 1` — fire an extra projectile per shot |
 
 XP formula: `xpToNext = 10 + level * 5`
 

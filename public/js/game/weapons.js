@@ -167,7 +167,24 @@ export function updateWeapons(dt, player, projectiles, enemies) {
       const actualCooldown = def.cooldown / player.fireRateMultiplier;
       w.cooldown = actualCooldown;
       if (!def.isPassive) {
-        def.fire(player, projectiles, enemies);
+        const count = player.projectileCount || 1;
+        if (count === 1) {
+          def.fire(player, projectiles, enemies);
+        } else {
+          const baseAngle = Math.atan2(player.facingY, player.facingX);
+          const spread = 0.25;
+          const origFacingX = player.facingX;
+          const origFacingY = player.facingY;
+          for (let i = 0; i < count; i++) {
+            const offset = (i - (count - 1) / 2) * spread;
+            const a = baseAngle + offset;
+            player.facingX = Math.cos(a);
+            player.facingY = Math.sin(a);
+            def.fire(player, projectiles, enemies);
+          }
+          player.facingX = origFacingX;
+          player.facingY = origFacingY;
+        }
       } else if (w.type === 'standup') {
         def.fire(player, projectiles, enemies);
       }

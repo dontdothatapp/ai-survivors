@@ -40,6 +40,7 @@ export class Player {
     this.pickupRadius = 50;
     this.bonusPierce = 0;
     this.aoeMultiplier = 1;
+    this.projectileCount = 1;
     this.invincibleTimer = 0;
     this.kills = 0;
     this.pendingUpgrade = false;
