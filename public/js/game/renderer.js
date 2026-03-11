@@ -120,17 +120,9 @@ export class Renderer {
       this._drawSprintAnnouncement(state);
     }
 
-    // Pause overlay
-    if (state.paused && state.pausedPlayer) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(0, 0, this.width, this.height);
-      ctx.fillStyle = '#ffcc00';
-      ctx.font = 'bold 28px "Courier New"';
-      ctx.textAlign = 'center';
-      ctx.fillText('LEVEL UP!', this.width / 2, this.height / 2 - 20);
-      ctx.fillStyle = state.pausedPlayer.color;
-      ctx.font = '18px "Courier New"';
-      ctx.fillText(`${state.pausedPlayer.name} is choosing an upgrade...`, this.width / 2, this.height / 2 + 16);
+    // Voting overlay
+    if (state.paused && state.votingState) {
+      this._drawVotingOverlay(state.votingState);
     }
   }
 
@@ -342,6 +334,26 @@ export class Renderer {
       barX += barW + 8;
     }
 
+    // Team XP bar (top center)
+    if (state.teamXP) {
+      const txp = state.teamXP;
+      const barW = 200;
+      const barH = 8;
+      const barX = (width - barW) / 2;
+      const barY = 30;
+      ctx.fillStyle = '#222';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#44ff88';
+      ctx.fillRect(barX, barY, barW * (txp.xp / txp.xpToNext), barH);
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#aaa';
+      ctx.font = '10px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Team Lv ${txp.level}  (${txp.xp}/${txp.xpToNext} XP)`, width / 2, barY + barH + 12);
+    }
+
     // Debug: enemy count overlay (bottom-left)
     const aliveEnemies = enemies.filter(e => e.alive);
     const byType = {};
@@ -357,5 +369,83 @@ export class Renderer {
       ctx.fillStyle = '#0f0';
       ctx.fillText(line, 10, height - 5 - (lines.length - i - 1) * 14);
     });
+  }
+
+  _drawVotingOverlay(votingState) {
+    const { ctx, width, height } = this;
+    const { options, votes, totalVoters } = votingState;
+
+    // Dark overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, width, height);
+
+    // Title
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 32px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEVEL UP!', width / 2, height / 2 - 130);
+
+    // Vote progress
+    const voteCount = votes.length;
+    ctx.fillStyle = '#aaa';
+    ctx.font = '14px "Courier New"';
+    ctx.fillText(`Votes: ${voteCount} / ${totalVoters}`, width / 2, height / 2 - 100);
+
+    // Upgrade cards
+    const cardW = 180;
+    const cardH = 120;
+    const gap = 20;
+    const totalW = options.length * cardW + (options.length - 1) * gap;
+    const startX = (width - totalW) / 2;
+    const cardY = height / 2 - 60;
+
+    for (let i = 0; i < options.length; i++) {
+      const opt = options[i];
+      const cx = startX + i * (cardW + gap);
+
+      // Card background
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(cx, cardY, cardW, cardH);
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx, cardY, cardW, cardH);
+
+      // Card name
+      ctx.fillStyle = '#ffcc00';
+      ctx.font = 'bold 12px "Courier New"';
+      ctx.textAlign = 'center';
+      const nameX = cx + cardW / 2;
+      // Word wrap the name
+      const nameWords = opt.name.split(' ');
+      let nameLine = '';
+      let nameLineY = cardY + 24;
+      for (const word of nameWords) {
+        const test = nameLine ? nameLine + ' ' + word : word;
+        if (ctx.measureText(test).width > cardW - 16) {
+          ctx.fillText(nameLine, nameX, nameLineY);
+          nameLine = word;
+          nameLineY += 14;
+        } else {
+          nameLine = test;
+        }
+      }
+      if (nameLine) ctx.fillText(nameLine, nameX, nameLineY);
+
+      // Card description
+      ctx.fillStyle = '#ccc';
+      ctx.font = '11px "Courier New"';
+      ctx.fillText(opt.desc, nameX, cardY + 70);
+
+      // Vote dots below card
+      const votesForThis = votes.filter(v => v.upgradeId === opt.id);
+      const dotY = cardY + cardH + 16;
+      const dotStartX = nameX - (votesForThis.length - 1) * 10 / 2;
+      for (let j = 0; j < votesForThis.length; j++) {
+        ctx.fillStyle = votesForThis[j].color;
+        ctx.beginPath();
+        ctx.arc(dotStartX + j * 10, dotY, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 }

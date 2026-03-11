@@ -16,6 +16,8 @@ let ws = null;
 let playerId = null;
 let joystick = null;
 let sendInterval = null;
+let hasVoted = false;
+let isAlive = true;
 
 // Screen wake lock
 async function requestWakeLock() {
@@ -64,11 +66,19 @@ function handleMessage(msg) {
       if (playerId === null) return;
       const me = msg.players.find(p => p.id === playerId);
       if (!me) return;
-      updatePlayerInfo(me);
+      isAlive = me.alive;
+      updatePlayerInfo(me, msg.teamXP);
       break;
 
     case 'upgrade_prompt':
-      showUpgradeOptions(msg.options);
+      if (isAlive) {
+        hasVoted = false;
+        showUpgradeOptions(msg.options);
+      }
+      break;
+
+    case 'upgrade_resolved':
+      showController();
       break;
 
     case 'game_start':
@@ -111,12 +121,14 @@ function showController() {
   }
 }
 
-function updatePlayerInfo(player) {
+function updatePlayerInfo(player, teamXP) {
   playerNameEl.textContent = player.name;
   playerNameEl.style.color = player.color;
   hpFillEl.style.width = `${(player.hp / player.maxHp) * 100}%`;
-  xpFillEl.style.width = `${(player.xp / player.xpToNext) * 100}%`;
-  levelTextEl.textContent = `Lv ${player.level}`;
+  if (teamXP) {
+    xpFillEl.style.width = `${(teamXP.xp / teamXP.xpToNext) * 100}%`;
+    levelTextEl.textContent = `Lv ${teamXP.level}`;
+  }
 
   if (!player.alive && controllerUI.style.display !== 'none') {
     showDead();
@@ -134,13 +146,16 @@ function showUpgradeOptions(options) {
     btn.className = 'upgrade-btn';
     btn.innerHTML = `<span class="name">${opt.name}</span><span class="desc">${opt.desc}</span>`;
     btn.addEventListener('click', () => {
+      if (hasVoted) return;
+      hasVoted = true;
       if (ws && ws.readyState === 1) {
         ws.send(JSON.stringify({
           type: 'upgrade_pick',
           upgradeId: opt.id,
         }));
       }
-      showController();
+      // Show waiting state
+      upgradeOptionsEl.innerHTML = '<p style="color: #aaa; font-family: Courier New; text-align: center; padding: 20px;">Vote submitted! Waiting for others...</p>';
     });
     upgradeOptionsEl.appendChild(btn);
   }

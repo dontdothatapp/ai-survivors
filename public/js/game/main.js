@@ -2,7 +2,7 @@
 import { Player, Enemy, Projectile, XPGem } from './entities.js';
 import { WEAPON_DEFS, updateWeapons } from './weapons.js';
 import { WaveManager } from './waves.js';
-import { rollUpgrades, applyUpgrade } from './upgrades.js';
+import { rollUpgrades, applyUpgrade, applyUpgradeToAll } from './upgrades.js';
 import { Renderer } from './renderer.js';
 import * as network from './network.js';
 import * as sound from './sound.js';
@@ -19,6 +19,8 @@ let xpGems = [];
 let waveManager = new WaveManager();
 let gameTime = 0;
 let gameState = 'lobby'; // lobby | playing | gameover
+let teamXP = { xp: 0, level: 1, xpToNext: 15 };
+let votingState = null; // { options: [...], votes: Map<playerId, upgradeId> }
 let lobbyPlayers = new Map(); // id -> {id, color, name}
 
 // Player colors & names
@@ -157,6 +159,14 @@ network.connect((msg) => {
       if (gameState === 'playing') {
         const p = players.find(pl => pl.id === msg.playerId);
         if (p) p.alive = false;
+        // Recheck voting if in progress
+        if (votingState) {
+          votingState.votes.delete(msg.playerId);
+          const alivePlayers = players.filter(pl => pl.alive);
+          if (alivePlayers.length > 0 && votingState.votes.size >= alivePlayers.length) {
+            resolveVote();
+          }
+        }
       }
       break;
     }
@@ -169,10 +179,16 @@ network.connect((msg) => {
       break;
     }
     case 'upgrade_pick': {
-      const p = players.find(pl => pl.id === msg.playerId);
-      if (p && p.pendingUpgrade) {
-        applyUpgrade(p, msg.upgradeId);
-        p.pendingUpgrade = false;
+      if (!votingState) break;
+      const pid = msg.playerId;
+      if (votingState.votes.has(pid)) break; // already voted
+      const p = players.find(pl => pl.id === pid);
+      if (!p || !p.alive) break;
+      votingState.votes.set(pid, msg.upgradeId);
+      // Check if all alive players have voted
+      const alivePlayers = players.filter(pl => pl.alive);
+      if (votingState.votes.size >= alivePlayers.length) {
+        resolveVote();
       }
       break;
     }
@@ -224,6 +240,8 @@ function startGame() {
   projectiles = [];
   xpGems = [];
   gameTime = 0;
+  teamXP = { xp: 0, level: 1, xpToNext: 15 };
+  votingState = null;
   waveManager = new WaveManager();
 
   for (const [id] of lobbyPlayers) {
@@ -260,12 +278,13 @@ function showGameOver(victory) {
   const minutes = Math.floor(gameTime / 60);
   const seconds = Math.floor(gameTime % 60);
   let statsText = `Time survived: ${minutes}:${seconds.toString().padStart(2, '0')}\n`;
-  statsText += `Waves completed: ${waveManager.currentWave}\n\n`;
+  statsText += `Waves completed: ${waveManager.currentWave}\n`;
+  statsText += `Team Level: ${teamXP.level}\n\n`;
 
   let mvp = null;
   let maxKills = -1;
   for (const p of players) {
-    statsText += `${p.name}: ${p.kills} kills, Lv ${p.level}\n`;
+    statsText += `${p.name}: ${p.kills} kills\n`;
     if (p.kills > maxKills) { maxKills = p.kills; mvp = p; }
   }
   if (mvp) statsText += `\nMVP: ${mvp.name}`;
@@ -293,23 +312,30 @@ function gameLoop(timestamp) {
 
   if (gameState !== 'playing') return;
 
-  // Pause when any player is choosing an upgrade
-  const pausedForUpgrade = players.some(p => p.pendingUpgrade);
-  if (pausedForUpgrade) {
+  // Pause when voting is in progress
+  if (votingState !== null) {
     // Still render but skip simulation
     renderer.updateCamera(players, dt);
     renderer.render({
       players, enemies, projectiles, xpGems,
       wave: waveManager.currentWave,
       gameTime,
+      teamXP,
       paused: true,
-      pausedPlayer: players.find(p => p.pendingUpgrade),
+      votingState: {
+        options: votingState.options.map(o => ({ id: o.id, name: o.name, desc: o.desc })),
+        votes: [...votingState.votes.entries()].map(([pid, uid]) => ({
+          playerId: pid, upgradeId: uid,
+          color: players.find(p => p.id === pid)?.color || '#fff'
+        })),
+        totalVoters: players.filter(p => p.alive).length,
+      },
     });
     // Keep broadcasting state so phones stay updated
     stateBroadcastTimer -= dt;
     if (stateBroadcastTimer <= 0) {
       stateBroadcastTimer = 0.2;
-      network.broadcastState(players);
+      network.broadcastState(players, teamXP);
     }
     return;
   }
@@ -337,6 +363,7 @@ function gameLoop(timestamp) {
       players, enemies, projectiles, xpGems,
       wave: waveManager.currentWave,
       gameTime,
+      teamXP,
       sprintPause: true,
       sprintMessage: waveManager.waveMessage,
       sprintNewEnemy: waveManager.newEnemy,
@@ -345,7 +372,7 @@ function gameLoop(timestamp) {
     stateBroadcastTimer -= dt;
     if (stateBroadcastTimer <= 0) {
       stateBroadcastTimer = 0.2;
-      network.broadcastState(players);
+      network.broadcastState(players, teamXP);
     }
     return;
   }
@@ -533,15 +560,18 @@ function gameLoop(timestamp) {
     }
   }
 
-  // XP gems
+  // XP gems — team pool
   for (const gem of xpGems) {
     const collector = gem.update(dt, players);
     if (collector) {
       sound.playPickup();
-      const leveled = collector.addXP(gem.value);
-      if (leveled) {
+      teamXP.xp += gem.value;
+      if (teamXP.xp >= teamXP.xpToNext) {
+        teamXP.xp -= teamXP.xpToNext;
+        teamXP.level++;
+        teamXP.xpToNext = Math.round(15 * Math.pow(GAME_CONFIG.xpMultiplier, teamXP.level - 1));
         sound.playLevelUp();
-        triggerLevelUp(collector);
+        triggerTeamLevelUp();
       }
     }
   }
@@ -592,13 +622,14 @@ function gameLoop(timestamp) {
     players, enemies, projectiles, xpGems,
     wave: waveManager.currentWave,
     gameTime,
+    teamXP,
   });
 
   // Broadcast state to controllers
   stateBroadcastTimer -= dt;
   if (stateBroadcastTimer <= 0) {
     stateBroadcastTimer = 0.2; // 5 Hz
-    network.broadcastState(players);
+    network.broadcastState(players, teamXP);
   }
 }
 
@@ -639,25 +670,60 @@ function onEnemyKilled(enemy, killer) {
   }
 }
 
-function triggerLevelUp(player) {
-  player.pendingUpgrade = true;
+function triggerTeamLevelUp() {
   const options = rollUpgrades(3);
-  // Send to phone controller
-  network.sendUpgradePrompt(player.id, options.map(o => ({
+  votingState = { options, votes: new Map() };
+  // Send to ALL controllers
+  network.sendUpgradePromptToAll(options.map(o => ({
     id: o.id,
     name: o.name,
     desc: o.desc,
   })));
 
-  // If debug player (keyboard), auto-pick first option after 1s
-  if (player.id === -1) {
+  // If debug player (keyboard, id=-1), auto-vote after 1s
+  const debugPlayer = players.find(p => p.id === -1 && p.alive);
+  if (debugPlayer) {
     setTimeout(() => {
-      if (player.pendingUpgrade) {
-        applyUpgrade(player, options[0].id);
-        player.pendingUpgrade = false;
+      if (votingState && !votingState.votes.has(-1)) {
+        votingState.votes.set(-1, options[0].id);
+        const alivePlayers = players.filter(p => p.alive);
+        if (votingState.votes.size >= alivePlayers.length) {
+          resolveVote();
+        }
       }
     }, 1000);
   }
+}
+
+function resolveVote() {
+  if (!votingState) return;
+  // Tally votes per upgradeId
+  const tally = new Map();
+  for (const [, uid] of votingState.votes) {
+    tally.set(uid, (tally.get(uid) || 0) + 1);
+  }
+  // Find max vote count
+  let maxCount = 0;
+  for (const count of tally.values()) {
+    if (count > maxCount) maxCount = count;
+  }
+  // Collect all tied at max
+  const tied = [];
+  for (const [uid, count] of tally) {
+    if (count === maxCount) tied.push(uid);
+  }
+  // Random pick among ties
+  const winnerId = tied[Math.floor(Math.random() * tied.length)];
+  // Apply to all alive players
+  const alivePlayers = players.filter(p => p.alive);
+  applyUpgradeToAll(alivePlayers, winnerId);
+  // Sync level
+  for (const p of alivePlayers) {
+    p.level = teamXP.level;
+  }
+  // Clear voting
+  votingState = null;
+  network.sendUpgradeResolved();
 }
 
 // --- Init ---

@@ -42,7 +42,7 @@ AI_survivors/
 ```
 
 ### Server (`server.js`)
-- Dumb relay — no game state server-side
+- Dumb relay — no game state server-side; forwards allowed message types (`state`, `upgrade_prompt`, `upgrade_resolved`, `game_start`, `game_over`) to controllers
 - HTTP: serves `public/` as static files with MIME types
 - WebSocket routes:
   - `/game` → game screen (one connection)
@@ -59,8 +59,8 @@ AI_survivors/
 ### Phone Controller
 - Connects to `/controller`, receives assigned player ID
 - Touch joystick sends `{type:"input", dx, dy}` at ~30 Hz
-- Displays HP bar, XP bar, level
-- On level-up: joystick replaced by 3 tappable upgrade buttons
+- Displays HP bar, team XP bar, team level
+- On level-up: all controllers show 3 upgrade vote buttons simultaneously; after voting shows "Waiting for others..."
 - Screen wake lock via `navigator.wakeLock`
 
 ---
@@ -70,9 +70,10 @@ AI_survivors/
 | Direction | Message | Notes |
 |-----------|---------|-------|
 | Phone → Game | `{type:"input", playerId, dx, dy}` | 30 Hz |
-| Game → All phones | `{type:"state", players:[...]}` | 5 Hz |
-| Game → Specific phone | `{type:"upgrade_prompt", targetPlayer, options}` | on level-up |
-| Phone → Game | `{type:"upgrade_pick", upgradeId}` | upgrade selection |
+| Game → All phones | `{type:"state", teamXP:{xp,xpToNext,level}, players:[...]}` | 5 Hz |
+| Game → All phones | `{type:"upgrade_prompt", options}` | on team level-up |
+| Phone → Game | `{type:"upgrade_pick", upgradeId}` | vote for upgrade |
+| Game → All phones | `{type:"upgrade_resolved"}` | dismiss vote UI |
 | Phone → Game | `{type:"request_start"}` | start from phone |
 | Game → All phones | `{type:"game_start"}` / `{type:"game_over", victory, stats}` | flow events |
 | Server → Game | `{type:"player_joined/left", playerId}` | connection events |
@@ -82,9 +83,9 @@ AI_survivors/
 ## Game Loop (`main.js`)
 
 Each frame:
-1. **Upgrade pause check** — if any player has `pendingUpgrade`, skip simulation, render with pause overlay
+1. **Voting pause check** — if `votingState !== null`, skip simulation, render voting overlay with upgrade cards + colored vote dots
 2. `WaveManager.update()` — ticks sprint timer; if sprint pause active, counts down and returns early
-3. **Sprint pause check** — if new sprint just started (5s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
+3. **Sprint pause check** — if new sprint just started (3s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
 4. Player `update(dt)` — apply joystick input, move, update duck orbit angle
 3. Soft player-player collision (push apart)
 4. Coffee aura boost (temporarily bumps `fireRateMultiplier`)
@@ -93,7 +94,7 @@ Each frame:
 7. Enemy update — frozen timer, then type-specific AI
 8. Projectile update + enemy collision detection
 9. Enemy-player contact damage
-10. XP gem magnet + collection → level-up trigger
+10. XP gem magnet + collection → team XP pool → voting trigger on level-up
 11. Cleanup dead entities
 13. Game-over check (all dead / boss defeated)
 14. Camera update → soft-pull players toward viewport → render
@@ -110,7 +111,7 @@ Each frame:
 - `bonusPierce` — added to all projectile pierce values
 - `projectileCount` — number of projectiles fired per shot (1 by default); extras are fanned out at ±0.25 rad intervals around the facing direction
 - `weapons[]` — array of `{type, cooldown}` objects
-- `pendingUpgrade` — true while waiting for upgrade pick (pauses game)
+- `level` — synced from team XP pool on level-up
 - `invincibleTimer` — brief i-frames after taking damage (0.3s)
 
 ### Enemy Types
@@ -167,7 +168,7 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 ## Wave Progression (`waves.js`)
 
 - **7 sprints**, 45s each (or fewer kills — see Admin Panel). Each sprint introduces one new enemy type.
-- On sprint start: 5-second pause showing the sprint title + new enemy preview (sprite + name)
+- On sprint start: 3-second pause showing the sprint title + new enemy preview (sprite + name)
 - After the pause, the featured enemy spawns immediately near players
 - Enemy pool unlocks per sprint: jira (s1), bug (s2), pm (s3), em (s4), vp (s5), ceo (s6)
 - Pool weights: jira/bug are common (3× weight), elites are rare (1× each)
@@ -193,7 +194,7 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 
 ## Upgrades (`upgrades.js`)
 
-`rollUpgrades(3)` picks 3 random from pool. `applyUpgrade(player, id)` applies effect.
+`rollUpgrades(3)` picks 3 random from pool. `applyUpgrade(player, id)` applies to one player. `applyUpgradeToAll(players, id)` applies to all alive players — for `new_weapon`, pre-rolls one random weapon and gives the same weapon to all.
 
 | ID | Name | Effect |
 |----|------|--------|
@@ -209,6 +210,10 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 
 XP formula: `xpToNext = Math.round(15 × xpMultiplier^(level-1))` — exponential scaling controlled by `GAME_CONFIG.xpMultiplier` (default 1.5)
 
+### Team XP & Voting
+
+XP is shared in a single **team pool** (`teamXP` in `main.js`). When the team levels up, all alive players vote on one of 3 randomly rolled upgrades. The main screen shows a voting overlay with upgrade cards and colored dots representing each player's vote. Once all alive players have voted (or disconnected players are removed), the upgrade with the most votes wins (ties broken randomly) and is applied to all alive players via `applyUpgradeToAll()`. Dead players skip voting. Debug player (id=-1) auto-votes for the first option after 1s.
+
 ---
 
 ## Rendering (`renderer.js`)
@@ -217,8 +222,8 @@ XP formula: `xpToNext = Math.round(15 × xpMultiplier^(level-1))` — exponentia
 - Screen shake: intensity + timer, applied as random translate offset
 - Floating texts: world-space, rise + fade over ~0.8s
 - Sprites: programmatic pixel art cached to offscreen canvases (`sprites.js`)
-- HUD: wave/time top-left, engineer count top-right, mini HP bars per player, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
-- Upgrade pause overlay: semi-transparent black + "LEVEL UP!" + player name/color
+- HUD: wave/time top-left, engineer count top-right, mini HP bars per player, team XP bar top-center, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
+- Voting overlay: dark overlay + "LEVEL UP!" title + 3 upgrade cards (name + description) + colored vote dots below each card + vote progress counter
 - Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
 
 ---
@@ -255,6 +260,6 @@ Accessible via the **⚙ ADMIN** button on the lobby screen. Settings persist in
 
 - No actual QR code (shows URL as text instead — needs a QR library or pre-generated image)
 - Players are soft-pulled toward the visible viewport (gentle force, not hard clamp)
-- Debug player (id: -1) auto-picks first upgrade after 1s
+- Debug player (id: -1) auto-votes for first upgrade option after 1s
 - No persistent scores / leaderboard
 - No sound for wave start beyond wave 1

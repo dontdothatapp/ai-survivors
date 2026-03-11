@@ -27,16 +27,14 @@ export function send(msg) {
 }
 
 // Send state to all controllers
-export function broadcastState(players) {
+export function broadcastState(players, teamXP) {
   send({
     type: 'state',
+    teamXP: { xp: teamXP.xp, xpToNext: teamXP.xpToNext, level: teamXP.level },
     players: players.map(p => ({
       id: p.id,
       hp: p.hp,
       maxHp: p.maxHp,
-      xp: p.xp,
-      xpToNext: p.xpToNext,
-      level: p.level,
       alive: p.alive,
       color: p.color,
       name: p.name,
@@ -44,12 +42,18 @@ export function broadcastState(players) {
   });
 }
 
-// Send upgrade prompt to specific player
-export function sendUpgradePrompt(playerId, options) {
+// Send upgrade prompt to all players (no targetPlayer = broadcast)
+export function sendUpgradePromptToAll(options) {
   send({
     type: 'upgrade_prompt',
-    targetPlayer: playerId,
     options,
+  });
+}
+
+// Dismiss upgrade UI on all controllers
+export function sendUpgradeResolved() {
+  send({
+    type: 'upgrade_resolved',
   });
 }
 

@@ -55,7 +55,7 @@ wss.on('connection', (ws, req) => {
       // Forward game state to all controllers
       try {
         const msg = JSON.parse(raw);
-        if (msg.type === 'state' || msg.type === 'upgrade_prompt' || msg.type === 'game_start' || msg.type === 'game_over') {
+        if (msg.type === 'state' || msg.type === 'upgrade_prompt' || msg.type === 'upgrade_resolved' || msg.type === 'game_start' || msg.type === 'game_over') {
           if (msg.targetPlayer !== undefined) {
             // Send to specific player
             for (const [pid, cws] of controllers) {

@@ -32,9 +32,7 @@ export class Player {
     this.alive = true;
     this.color = PLAYER_COLORS[id % PLAYER_COLORS.length];
     this.name = PLAYER_NAMES[id % PLAYER_NAMES.length];
-    this.xp = 0;
     this.level = 1;
-    this.xpToNext = Math.round(15 * Math.pow(GAME_CONFIG.xpMultiplier, 0));
     this.weapons = [{ type: 'code_review', cooldown: 0 }];
     this.damageMultiplier = 1;
     this.fireRateMultiplier = 1;
@@ -44,7 +42,6 @@ export class Player {
     this.projectileCount = 1;
     this.invincibleTimer = 0;
     this.kills = 0;
-    this.pendingUpgrade = false;
     // Weapon-specific state
     this.rubberDuckAngle = 0;
     this.coffeeActive = false;
@@ -81,18 +78,6 @@ export class Player {
       this.hp = 0;
       this.alive = false;
       return true; // died
-    }
-    return false;
-  }
-
-  addXP(amount) {
-    if (!this.alive || this.pendingUpgrade) return false;
-    this.xp += amount;
-    if (this.xp >= this.xpToNext) {
-      this.xp -= this.xpToNext;
-      this.level++;
-      this.xpToNext = Math.round(15 * Math.pow(GAME_CONFIG.xpMultiplier, this.level - 1));
-      return true; // leveled up
     }
     return false;
   }

@@ -101,4 +101,35 @@ export function applyUpgrade(player, upgradeId) {
   if (upgrade) upgrade.apply(player);
 }
 
+export function applyUpgradeToAll(players, upgradeId) {
+  const upgrade = UPGRADES.find(u => u.id === upgradeId);
+  if (!upgrade) return;
+
+  if (upgradeId === 'new_weapon') {
+    // Pre-roll ONE random weapon, give the same weapon to all players
+    const allOwned = new Set();
+    for (const p of players) {
+      for (const w of p.weapons) allOwned.add(w.type);
+    }
+    const available = Object.keys(WEAPON_DEFS).filter(k => !allOwned.has(k));
+    if (available.length === 0) {
+      // All weapons owned — boost damage for all
+      for (const p of players) {
+        p.damageMultiplier = (p.damageMultiplier || 1) + 0.2;
+      }
+      return;
+    }
+    const type = available[Math.floor(Math.random() * available.length)];
+    for (const p of players) {
+      if (!p.weapons.some(w => w.type === type)) {
+        p.weapons.push({ type, cooldown: 0 });
+      }
+    }
+  } else {
+    for (const p of players) {
+      upgrade.apply(p);
+    }
+  }
+}
+
 export { UPGRADES };

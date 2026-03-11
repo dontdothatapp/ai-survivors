@@ -88,7 +88,7 @@ export class WaveManager {
       this.waveMessageTimer = 3;
       this.newEnemy = SPRINT_NEW_ENEMY[this.currentWave] || null;
       this.sprintPauseActive = true;
-      this.sprintPauseTimer = 5;
+      this.sprintPauseTimer = 3;
     }
 
     if (this.currentWave === 0) return;
