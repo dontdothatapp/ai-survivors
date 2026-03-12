@@ -23,7 +23,7 @@ AI_survivors/
     ├── game.html           # Game screen (laptop/TV)
     ├── controller.html     # Phone controller
     ├── avatars/            # Optimized character PNGs (~30-40KB each, 256px) + aleksei ally avatar
-    ├── sounds/             # Audio files (aleksei.mp3)
+    ├── sounds/             # Audio files (aleksei.mp3, ai_final_boss.mp3)
     ├── css/
     │   ├── game.css
     │   └── controller.css
@@ -39,7 +39,7 @@ AI_survivors/
         │   ├── globalEvents.js # GlobalEventManager — predefined per-sprint events
         │   ├── config.js       # GAME_CONFIG — persistent admin settings (localStorage)
         │   ├── sprites.js      # Programmatic pixel art + avatar image loading/caching
-        │   ├── sound.js        # Web Audio API retro beeps + Aleksei ally music
+        │   ├── sound.js        # Web Audio API retro beeps + Aleksei ally music + boss fight music
         │   └── network.js      # Game-screen WebSocket client + broadcast helpers
         └── controller/
             ├── controller.js  # Phone WS connection, character select, state display, upgrade UI
@@ -145,6 +145,7 @@ Each frame:
 | `boss` | 2000+ | 20 | 3 phases (see below) |
 
 ### Boss — THE AI (sprint 7)
+- `ai_final_boss.mp3` loops for the duration of the boss fight (stops on game over)
 - **Phase 1** (>66% HP): spawns enemy clusters every 4s
 - **Phase 2** (33–66%): hallucination — spawns 4 flaky enemies every 1.5s
 - **Phase 3** (<33%): spawns bugs every 2s, speed bumps to 35
