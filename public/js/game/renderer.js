@@ -115,6 +115,11 @@ export class Renderer {
     // HUD overlay
     this._drawHUD(state);
 
+    // Global event announcement
+    if (state.globalEventAnnouncement) {
+      this._drawGlobalEventAnnouncement(state.globalEventAnnouncement);
+    }
+
     // Sprint announcement overlay
     if (state.sprintPause) {
       this._drawSprintAnnouncement(state);
@@ -262,12 +267,12 @@ export class Renderer {
     }
 
     // Sprite
-    const size = type === 'boss' ? 64 : 32;
+    const size = type === 'boss' ? 64 : type === 'ai_mini' ? 48 : 32;
     const sprite = getEnemySprite(type);
     ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size);
 
     // HP bar for elites and boss
-    if (type === 'pm' || type === 'em' || type === 'vp' || type === 'ceo' || type === 'boss') {
+    if (type === 'pm' || type === 'em' || type === 'vp' || type === 'ceo' || type === 'boss' || type === 'ai_mini') {
       const barW = type === 'boss' ? 60 : 36;
       const barH = 4;
       const barY = y - size / 2 - 6;
@@ -369,6 +374,51 @@ export class Renderer {
       ctx.fillStyle = '#0f0';
       ctx.fillText(line, 10, height - 5 - (lines.length - i - 1) * 14);
     });
+  }
+
+  _drawGlobalEventAnnouncement(announcement) {
+    const { ctx, width, height } = this;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    // Dark overlay
+    ctx.fillStyle = 'rgba(0, 0, 10, 0.82)';
+    ctx.fillRect(0, 0, width, height);
+
+    // Scanline flicker effect
+    const flicker = Math.sin(announcement.timer * 12) * 0.04;
+    ctx.fillStyle = `rgba(255, 50, 50, ${0.03 + flicker})`;
+    for (let y = 0; y < height; y += 4) {
+      ctx.fillRect(0, y, width, 1);
+    }
+
+    // Warning label
+    ctx.fillStyle = '#ff2222';
+    ctx.font = 'bold 14px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText('[ GLOBAL EVENT ]', cx, cy - 60);
+
+    // Event name — large, pulsing
+    const pulse = 1 + Math.sin(announcement.timer * 8) * 0.05;
+    ctx.save();
+    ctx.translate(cx, cy - 10);
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = '#ff4444';
+    ctx.font = 'bold 42px "Courier New"';
+    ctx.fillText(announcement.name, 0, 0);
+    ctx.restore();
+
+    // Description
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(announcement.desc, cx, cy + 36);
+
+    // Countdown
+    const secs = Math.ceil(announcement.timer);
+    ctx.fillStyle = '#555';
+    ctx.font = '13px "Courier New"';
+    ctx.fillText(`Activating in ${secs}...`, cx, cy + 90);
   }
 
   _drawVotingOverlay(votingState) {

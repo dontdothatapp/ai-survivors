@@ -188,6 +188,14 @@ export class Enemy {
         this.xpValue = 80;
         this.radius = 26;
         break;
+      case 'ai_mini':
+        this.hp = Math.max(1, Math.floor((cfg.boss ?? 2000) * 0.1));
+        this.maxHp = this.hp;
+        this.speed = 55;
+        this.damage = 12;
+        this.xpValue = 15;
+        this.radius = 18;
+        break;
       case 'boss':
         this.hp = (cfg.boss ?? 2000) + wave * 100;
         this.maxHp = this.hp;
@@ -490,6 +498,68 @@ export class XPGem {
       }
     }
     return null;
+  }
+}
+
+const PROMOTION_HIERARCHY = ['jira', 'bug', 'feature', 'pm', 'em', 'vp', 'ceo'];
+
+export function upgradeEnemyType(enemy) {
+  const idx = PROMOTION_HIERARCHY.indexOf(enemy.type);
+  if (idx < 0 || idx >= PROMOTION_HIERARCHY.length - 1) return;
+  const newType = PROMOTION_HIERARCHY[idx + 1];
+  enemy.type = newType;
+
+  const scale = 1 + (enemy.wave - 1) * 0.05;
+  const cfg = GAME_CONFIG.enemyHp;
+  switch (newType) {
+    case 'bug':
+      enemy.hp = (cfg.bug ?? 10) * scale;
+      enemy.maxHp = enemy.hp;
+      enemy.speed = 110;
+      enemy.damage = 6;
+      enemy.xpValue = 3;
+      enemy.radius = 14;
+      break;
+    case 'feature':
+      enemy.hp = 40 * scale;
+      enemy.maxHp = enemy.hp;
+      enemy.speed = 40;
+      enemy.damage = 12;
+      enemy.xpValue = 8;
+      enemy.radius = 18;
+      break;
+    case 'pm':
+      enemy.hp = (cfg.pm ?? 150) * scale;
+      enemy.maxHp = enemy.hp;
+      enemy.speed = 35;
+      enemy.damage = 10;
+      enemy.xpValue = 25;
+      enemy.radius = 22;
+      break;
+    case 'em':
+      enemy.hp = (cfg.em ?? 200) * scale;
+      enemy.maxHp = enemy.hp;
+      enemy.speed = 30;
+      enemy.damage = 10;
+      enemy.xpValue = 30;
+      enemy.radius = 22;
+      break;
+    case 'vp':
+      enemy.hp = (cfg.vp ?? 300) * scale;
+      enemy.maxHp = enemy.hp;
+      enemy.speed = 25;
+      enemy.damage = 15;
+      enemy.xpValue = 50;
+      enemy.radius = 24;
+      break;
+    case 'ceo':
+      enemy.hp = (cfg.ceo ?? 600) * scale;
+      enemy.maxHp = enemy.hp;
+      enemy.speed = 20;
+      enemy.damage = 20;
+      enemy.xpValue = 80;
+      enemy.radius = 26;
+      break;
   }
 }
 

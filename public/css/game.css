@@ -211,6 +211,36 @@ body {
   border-color: #00ff8866;
 }
 
+.admin-event-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 2fr;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.admin-event-id {
+  font-size: 11px;
+  color: #ff8844;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+}
+
+.admin-event-row input {
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: "Courier New", monospace;
+  background: #111;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 4px;
+  outline: none;
+}
+
+.admin-event-row input:focus {
+  border-color: #00ff8866;
+}
+
 .admin-actions {
   display: flex;
   gap: 10px;

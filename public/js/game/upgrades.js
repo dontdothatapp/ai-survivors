@@ -17,6 +17,7 @@ const UPGRADES = [
       const type = available[Math.floor(Math.random() * available.length)];
       player.weapons.push({ type, cooldown: 0 });
     },
+    revert: null,
   },
   {
     id: 'damage',
@@ -25,6 +26,9 @@ const UPGRADES = [
     apply(player) {
       player.damageMultiplier = (player.damageMultiplier || 1) + 0.2;
     },
+    revert(player) {
+      player.damageMultiplier = Math.max(1.0, (player.damageMultiplier || 1) - 0.2);
+    },
   },
   {
     id: 'speed',
@@ -32,6 +36,9 @@ const UPGRADES = [
     desc: '+15% move speed',
     apply(player) {
       player.speed *= 1.15;
+    },
+    revert(player) {
+      player.speed = Math.max(150, player.speed / 1.15);
     },
   },
   {
@@ -42,6 +49,10 @@ const UPGRADES = [
       player.maxHp += 25;
       player.hp = player.maxHp;
     },
+    revert(player) {
+      player.maxHp = Math.max(100, player.maxHp - 25);
+      player.hp = Math.min(player.hp, player.maxHp);
+    },
   },
   {
     id: 'fire_rate',
@@ -49,6 +60,9 @@ const UPGRADES = [
     desc: '+20% fire rate',
     apply(player) {
       player.fireRateMultiplier = (player.fireRateMultiplier || 1) + 0.2;
+    },
+    revert(player) {
+      player.fireRateMultiplier = Math.max(1.0, (player.fireRateMultiplier || 1) - 0.2);
     },
   },
   {
@@ -58,6 +72,9 @@ const UPGRADES = [
     apply(player) {
       player.pickupRadius *= 1.5;
     },
+    revert(player) {
+      player.pickupRadius = Math.max(50, player.pickupRadius / 1.5);
+    },
   },
   {
     id: 'pierce',
@@ -65,6 +82,9 @@ const UPGRADES = [
     desc: '+1 pierce on projectiles',
     apply(player) {
       player.bonusPierce = (player.bonusPierce || 0) + 1;
+    },
+    revert(player) {
+      player.bonusPierce = Math.max(0, (player.bonusPierce || 0) - 1);
     },
   },
   {
@@ -74,6 +94,9 @@ const UPGRADES = [
     apply(player) {
       player.aoeMultiplier = (player.aoeMultiplier || 1) + 0.25;
     },
+    revert(player) {
+      player.aoeMultiplier = Math.max(1.0, (player.aoeMultiplier || 1) - 0.25);
+    },
   },
   {
     id: 'multishot',
@@ -81,6 +104,9 @@ const UPGRADES = [
     desc: 'Fire an extra projectile per shot',
     apply(player) {
       player.projectileCount = (player.projectileCount || 1) + 1;
+    },
+    revert(player) {
+      player.projectileCount = Math.max(1, (player.projectileCount || 1) - 1);
     },
   },
 ];
@@ -129,6 +155,14 @@ export function applyUpgradeToAll(players, upgradeId) {
     for (const p of players) {
       upgrade.apply(p);
     }
+  }
+}
+
+export function revertUpgradeFromAll(players, upgradeId) {
+  const upgrade = UPGRADES.find(u => u.id === upgradeId);
+  if (!upgrade || !upgrade.revert) return;
+  for (const p of players) {
+    if (p.alive) upgrade.revert(p);
   }
 }
 

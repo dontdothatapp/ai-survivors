@@ -71,6 +71,45 @@ export function playDeath() {
   }
 }
 
+export function playGlobalEvent() {
+  // Dramatic 8-bit alarm: descending ominous chord then rising sting
+  try {
+    const c = getCtx();
+    const t = c.currentTime;
+
+    // Low rumble sweep
+    const rumble = c.createOscillator();
+    const rumbleGain = c.createGain();
+    rumble.type = 'sawtooth';
+    rumble.frequency.setValueAtTime(80, t);
+    rumble.frequency.linearRampToValueAtTime(50, t + 0.3);
+    rumbleGain.gain.setValueAtTime(0.12, t);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    rumble.connect(rumbleGain);
+    rumbleGain.connect(c.destination);
+    rumble.start(t);
+    rumble.stop(t + 0.4);
+
+    // Descending alarm hits
+    const alarmNotes = [600, 500, 400, 300];
+    alarmNotes.forEach((freq, i) => {
+      setTimeout(() => playTone(freq, 0.12, 'square', 0.15), i * 80);
+    });
+
+    // Rising sting after alarm
+    const stingNotes = [200, 350, 500, 700, 900];
+    stingNotes.forEach((freq, i) => {
+      setTimeout(() => playTone(freq, 0.08, 'square', 0.1), 350 + i * 50);
+    });
+
+    // Final impact
+    setTimeout(() => {
+      playTone(120, 0.25, 'sawtooth', 0.18);
+      playTone(180, 0.2, 'square', 0.12);
+    }, 620);
+  } catch {}
+}
+
 // Call on first user interaction to unlock audio
 export function unlockAudio() {
   getCtx();

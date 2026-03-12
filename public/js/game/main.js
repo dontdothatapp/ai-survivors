@@ -1,9 +1,10 @@
 // Main game loop — orchestration, canvas setup, state management
-import { Player, Enemy, Projectile, XPGem } from './entities.js';
+import { Player, Enemy, Projectile, XPGem, upgradeEnemyType } from './entities.js';
 import { WEAPON_DEFS, updateWeapons } from './weapons.js';
 import { WaveManager } from './waves.js';
-import { rollUpgrades, applyUpgrade, applyUpgradeToAll } from './upgrades.js';
+import { rollUpgrades, applyUpgrade, applyUpgradeToAll, revertUpgradeFromAll } from './upgrades.js';
 import { Renderer } from './renderer.js';
+import { GlobalEventManager, EVENTS } from './globalEvents.js';
 import * as network from './network.js';
 import * as sound from './sound.js';
 import { GAME_CONFIG, saveConfig, resetConfig } from './config.js';
@@ -17,6 +18,8 @@ let enemies = [];
 let projectiles = [];
 let xpGems = [];
 let waveManager = new WaveManager();
+let globalEventManager = new GlobalEventManager();
+let midSprintEventFired = false;
 let gameTime = 0;
 let gameState = 'lobby'; // lobby | playing | gameover
 let teamXP = { xp: 0, level: 1, xpToNext: 15 };
@@ -61,6 +64,21 @@ function openAdminPanel() {
   }
   document.getElementById('admin-kills-per-sprint').value = GAME_CONFIG.killsPerSprint;
   document.getElementById('admin-xp-multiplier').value = GAME_CONFIG.xpMultiplier;
+
+  // Populate global events
+  const container = document.getElementById('admin-global-events');
+  container.innerHTML = '';
+  for (const event of EVENTS) {
+    const row = document.createElement('div');
+    row.className = 'admin-event-row';
+    row.innerHTML = `
+      <label class="admin-event-id">${event.id}</label>
+      <input id="admin-event-name-${event.id}" type="text" value="${event.name}" placeholder="Name">
+      <input id="admin-event-desc-${event.id}" type="text" value="${event.desc}" placeholder="Description">
+    `;
+    container.appendChild(row);
+  }
+
   adminPanel.style.display = 'flex';
 }
 
@@ -83,6 +101,14 @@ function saveAdminPanel() {
   const xpEl = document.getElementById('admin-xp-multiplier');
   const xpVal = parseFloat(xpEl.value);
   if (!isNaN(xpVal) && xpVal >= 1) GAME_CONFIG.xpMultiplier = xpVal;
+
+  // Save global event customizations
+  for (const event of EVENTS) {
+    const nameEl = document.getElementById(`admin-event-name-${event.id}`);
+    const descEl = document.getElementById(`admin-event-desc-${event.id}`);
+    if (nameEl && nameEl.value.trim()) event.name = nameEl.value.trim();
+    if (descEl && descEl.value.trim()) event.desc = descEl.value.trim();
+  }
 
   saveConfig();
   closeAdminPanel();
@@ -243,6 +269,8 @@ function startGame() {
   teamXP = { xp: 0, level: 1, xpToNext: 15 };
   votingState = null;
   waveManager = new WaveManager();
+  globalEventManager = new GlobalEventManager();
+  midSprintEventFired = false;
 
   for (const [id] of lobbyPlayers) {
     addPlayer(id);
@@ -344,8 +372,9 @@ function gameLoop(timestamp) {
   const wasSprintPaused = waveManager.sprintPauseActive;
   waveManager.update(dt, enemies, players, 0, 0);
 
-  // When sprint pause just ended, spawn the featured enemy near players
+  // When sprint pause just ended, spawn the featured enemy near players and reset mid-sprint flag
   if (wasSprintPaused && !waveManager.sprintPauseActive && waveManager.newEnemy) {
+    midSprintEventFired = false;
     let cx = 0, cy = 0, count = 0;
     for (const p of players) {
       if (p.alive) { cx += p.x; cy += p.y; count++; }
@@ -377,7 +406,41 @@ function gameLoop(timestamp) {
     return;
   }
 
+  // Global event pause — freeze game, show announcement, execute event when done
+  const wasGlobalPaused = globalEventManager.pauseActive;
+  globalEventManager.update(dt);
+
+  if (wasGlobalPaused && !globalEventManager.pauseActive) {
+    const pending = globalEventManager.consumePendingEvent();
+    if (pending) executeGlobalEvent(pending);
+  }
+
+  if (globalEventManager.pauseActive) {
+    renderer.updateCamera(players, dt);
+    renderer.render({
+      players, enemies, projectiles, xpGems,
+      wave: waveManager.currentWave,
+      gameTime,
+      teamXP,
+      globalEventAnnouncement: globalEventManager.getAnnouncement(),
+    });
+    stateBroadcastTimer -= dt;
+    if (stateBroadcastTimer <= 0) {
+      stateBroadcastTimer = 0.2;
+      network.broadcastState(players, teamXP);
+    }
+    return;
+  }
+
   gameTime += dt;
+
+  // Trigger global event at mid-sprint (halfway through WAVE_DURATION = 45s)
+  if (waveManager.currentWave > 0 && waveManager.currentWave < 7 &&
+      !midSprintEventFired && waveManager.waveTimer <= 22.5) {
+    midSprintEventFired = true;
+    globalEventManager.trigger();
+    sound.playGlobalEvent();
+  }
 
   // Debug keyboard input for player -1
   const debugPlayer = players.find(p => p.id === -1);
@@ -670,6 +733,88 @@ function onEnemyKilled(enemy, killer) {
   }
 }
 
+function executeGlobalEvent(event) {
+  const alivePlayers = players.filter(p => p.alive);
+  if (alivePlayers.length === 0) return;
+
+  switch (event.id) {
+    case 'reorg': {
+      // Kill one random alive player
+      const victim = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+      victim.alive = false;
+      victim.hp = 0;
+      sound.playDeath();
+      renderer.addFloatingText(victim.x, victim.y - 20, 'LAID OFF', '#ff4444', 2);
+      renderer.addScreenShake(5, 0.3);
+      break;
+    }
+    case 'new_teams': {
+      // Promote 20% of alive upgradeable enemies
+      const upgradeable = enemies.filter(e =>
+        e.alive && ['jira', 'bug', 'feature', 'pm', 'em', 'vp'].includes(e.type)
+      );
+      const count = Math.max(1, Math.floor(upgradeable.length * 0.2));
+      // Shuffle and pick
+      for (let i = upgradeable.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [upgradeable[i], upgradeable[j]] = [upgradeable[j], upgradeable[i]];
+      }
+      for (let i = 0; i < Math.min(count, upgradeable.length); i++) {
+        upgradeEnemyType(upgradeable[i]);
+        renderer.addFloatingText(upgradeable[i].x, upgradeable[i].y - 10, 'PROMOTED', '#ffcc44', 1.5);
+      }
+      break;
+    }
+    case 'we_need_ai': {
+      // Spawn 10 mini AI enemies around players, bypassing enemy cap
+      let cx = 0, cy = 0;
+      for (const p of alivePlayers) { cx += p.x; cy += p.y; }
+      cx /= alivePlayers.length;
+      cy /= alivePlayers.length;
+      for (let i = 0; i < 10; i++) {
+        const angle = (i / 10) * Math.PI * 2;
+        const dist = 250 + Math.random() * 150;
+        enemies.push(new Enemy('ai_mini', cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, waveManager.currentWave));
+      }
+      break;
+    }
+    case 'micromanager': {
+      // Revert up to 2 random upgrades (excluding new_weapon)
+      const revertible = globalEventManager.upgradeHistory.filter(id => id !== 'new_weapon');
+      if (revertible.length === 0) break;
+      // Pick up to 2 unique
+      const unique = [...new Set(revertible)];
+      for (let i = unique.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [unique[i], unique[j]] = [unique[j], unique[i]];
+      }
+      const toRevert = unique.slice(0, 2);
+      for (const id of toRevert) {
+        // Remove first occurrence from history
+        const idx = globalEventManager.upgradeHistory.indexOf(id);
+        if (idx !== -1) globalEventManager.upgradeHistory.splice(idx, 1);
+        revertUpgradeFromAll(alivePlayers, id);
+        renderer.addFloatingText(
+          alivePlayers[0].x, alivePlayers[0].y - 30,
+          `${id} DOWNGRADED`, '#ff8844', 2
+        );
+      }
+      break;
+    }
+    case 'stakeholders': {
+      // Remove 1 random weapon from each alive player (protect code_review)
+      for (const p of alivePlayers) {
+        const removable = p.weapons.filter(w => w.type !== 'code_review');
+        if (removable.length === 0) continue;
+        const victim = removable[Math.floor(Math.random() * removable.length)];
+        p.weapons = p.weapons.filter(w => w !== victim);
+        renderer.addFloatingText(p.x, p.y - 20, `-${victim.type}`, '#ff4444', 1.5);
+      }
+      break;
+    }
+  }
+}
+
 function triggerTeamLevelUp() {
   const options = rollUpgrades(3);
   votingState = { options, votes: new Map() };
@@ -717,6 +862,7 @@ function resolveVote() {
   // Apply to all alive players
   const alivePlayers = players.filter(p => p.alive);
   applyUpgradeToAll(alivePlayers, winnerId);
+  globalEventManager.recordUpgrade(winnerId);
   // Sync level
   for (const p of alivePlayers) {
     p.level = teamXP.level;

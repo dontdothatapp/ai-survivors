@@ -26,16 +26,17 @@ AI_survivors/
     │   └── controller.css
     └── js/
         ├── game/
-        │   ├── main.js     # Game loop, orchestration, lobby/game-over flow
-        │   ├── renderer.js # All canvas drawing, camera, screen shake, floating text
-        │   ├── entities.js # Player, Enemy, Projectile, XPGem classes
-        │   ├── waves.js    # WaveManager — enemy spawning & progression
-        │   ├── weapons.js  # WEAPON_DEFS + updateWeapons()
-        │   ├── upgrades.js # Upgrade pool + rollUpgrades() / applyUpgrade()
-        │   ├── config.js   # GAME_CONFIG — persistent admin settings (localStorage)
-        │   ├── sprites.js  # Programmatic pixel art (offscreen canvas cache)
-        │   ├── sound.js    # Web Audio API oscillator-based retro beeps
-        │   └── network.js  # Game-screen WebSocket client + broadcast helpers
+        │   ├── main.js         # Game loop, orchestration, lobby/game-over flow
+        │   ├── renderer.js     # All canvas drawing, camera, screen shake, floating text
+        │   ├── entities.js     # Player, Enemy, Projectile, XPGem classes
+        │   ├── waves.js        # WaveManager — enemy spawning & progression
+        │   ├── weapons.js      # WEAPON_DEFS + updateWeapons()
+        │   ├── upgrades.js     # Upgrade pool + rollUpgrades() / applyUpgrade()
+        │   ├── globalEvents.js # GlobalEventManager — mid-sprint random chaos events
+        │   ├── config.js       # GAME_CONFIG — persistent admin settings (localStorage)
+        │   ├── sprites.js      # Programmatic pixel art (offscreen canvas cache)
+        │   ├── sound.js        # Web Audio API oscillator-based retro beeps
+        │   └── network.js      # Game-screen WebSocket client + broadcast helpers
         └── controller/
             ├── controller.js  # Phone WS connection, state display, upgrade UI
             └── joystick.js    # Touch/mouse joystick (~80 lines)
@@ -86,7 +87,9 @@ Each frame:
 1. **Voting pause check** — if `votingState !== null`, skip simulation, render voting overlay with upgrade cards + colored vote dots
 2. `WaveManager.update()` — ticks sprint timer; if sprint pause active, counts down and returns early
 3. **Sprint pause check** — if new sprint just started (3s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
-4. Player `update(dt)` — apply joystick input, move, update duck orbit angle
+4. **Global event pause check** — if `globalEventManager.pauseActive`, skip simulation, render event announcement overlay; on transition execute the event effect
+5. **Mid-sprint trigger** — at the midpoint of each sprint (22.5s), trigger a random global event with 3s pause
+6. Player `update(dt)` — apply joystick input, move, update duck orbit angle
 3. Soft player-player collision (push apart)
 4. Coffee aura boost (temporarily bumps `fireRateMultiplier`)
 5. `updateWeapons(dt, player, projectiles, enemies)` for each player
@@ -124,6 +127,7 @@ Each frame:
 | `em` | 200 | 30 | Elite — chases players |
 | `vp` | 300 | 25 | Elite — spawns 3 jira minions every 10s |
 | `ceo` | 600 | 20 | Elite — spawns 2 PMs every 6s |
+| `ai_mini` | 10% of boss HP | 55 | Mini AI — spawned by "WE NEED AI" global event, uses boss sprite at 48px |
 | `boss` | 2000+ | 20 | 3 phases (see below) |
 
 ### Boss — THE AI (sprint 7)
@@ -194,7 +198,7 @@ When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles
 
 ## Upgrades (`upgrades.js`)
 
-`rollUpgrades(3)` picks 3 random from pool. `applyUpgrade(player, id)` applies to one player. `applyUpgradeToAll(players, id)` applies to all alive players — for `new_weapon`, pre-rolls one random weapon and gives the same weapon to all.
+`rollUpgrades(3)` picks 3 random from pool. `applyUpgrade(player, id)` applies to one player. `applyUpgradeToAll(players, id)` applies to all alive players — for `new_weapon`, pre-rolls one random weapon and gives the same weapon to all. Each upgrade (except `new_weapon`) also has a `revert()` function used by the Micromanager global event. `revertUpgradeFromAll(players, id)` reverts a specific upgrade on all alive players (with safe minimums).
 
 | ID | Name | Effect |
 |----|------|--------|
@@ -225,6 +229,25 @@ XP is shared in a single **team pool** (`teamXP` in `main.js`). When the team le
 - HUD: wave/time top-left, engineer count top-right, mini HP bars per player, team XP bar top-center, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
 - Voting overlay: dark overlay + "LEVEL UP!" title + 3 upgrade cards (name + description) + colored vote dots below each card + vote progress counter
 - Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
+- Global event announcement overlay: dark overlay + scanline flicker + `[ GLOBAL EVENT ]` label + pulsing red event name (42px bold) + description + "Activating in N..." countdown
+
+---
+
+## Global Events (`globalEvents.js`)
+
+Random chaos events that fire once per sprint at the midpoint (22.5s into each 45s sprint, sprints 1–6). The game pauses for 3 seconds showing a dramatic full-screen overlay with 8-bit alarm sound, then the event effect executes when the pause ends.
+
+Events are selected via weighted random from the `EVENTS` array (total weight = 115). Event names and descriptions are editable in the Admin Panel.
+
+| ID | Name | Description | Weight | Effect |
+|----|------|-------------|--------|--------|
+| `reorg` | REORG | One random engineer has been let go | 15 | Kills one random alive player |
+| `new_teams` | NEW TEAMS | 20% of enemies just got promoted | 25 | Promotes 20% of alive enemies up the hierarchy (jira→bug→feature→pm→em→vp→ceo) |
+| `we_need_ai` | WE NEED AI | 10 AI-powered enemies have entered the chat | 35 | Spawns 10 `ai_mini` enemies around players (bypasses 40-enemy cap) |
+| `micromanager` | MICROMANAGER | 2 random upgrades have been downgraded | 20 | Reverts up to 2 previously applied upgrades (excluding `new_weapon`) |
+| `stakeholders` | STAKEHOLDERS | Each engineer lost a weapon | 20 | Removes 1 random weapon from each player (protects `code_review`) |
+
+The `GlobalEventManager` tracks `upgradeHistory[]` (populated via `recordUpgrade()` on each vote resolution) so the Micromanager event knows which upgrades to revert.
 
 ---
 
@@ -251,6 +274,7 @@ Accessible via the **⚙ ADMIN** button on the lobby screen. Settings persist in
 | **Enemy Base HP** | Per-type HP before wave scaling (+5%/wave). Covers jira, bug, pm, em, vp, ceo, boss. | See entity table above |
 | **Kills to advance sprint** | Number of kills in the current sprint that trigger the next sprint early. `0` = time-based only (45s). | 0 |
 | **XP multiplier** | Each level-up requires this multiple of the previous threshold. `1.5` → Lv2 needs 23 XP, Lv3 needs 34, etc. | 1.5 |
+| **Global Events** | Editable name and description for each of the 5 global events. Changes apply immediately to the in-memory `EVENTS` array. | See Global Events table |
 
 `RESET DEFAULTS` restores all values and clears localStorage.
 

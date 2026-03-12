@@ -168,6 +168,19 @@ export function getEnemySprite(type) {
         ctx.fillRect(3*s + s/4, 4*s, s/2, 3*s);
         break;
 
+      case 'ai_mini':
+        // Mini AI — same look as boss, smaller
+        ctx.fillStyle = '#ff2266';
+        ctx.fillRect(s, s, 6*s, 6*s);
+        ctx.fillStyle = '#ff66aa';
+        ctx.fillRect(2*s, 2*s, 4*s, 4*s);
+        ctx.fillStyle = '#fff';
+        px(ctx, 3, 2, s, '#fff');
+        px(ctx, 4, 2, s, '#fff');
+        ctx.fillStyle = '#ff0000';
+        px(ctx, 3, 3, s, '#ff0000');
+        px(ctx, 4, 3, s, '#ff0000');
+        break;
       case 'boss':
         // THE AI — big, red/purple
         ctx.fillStyle = '#ff2266';
