@@ -10,6 +10,10 @@ const DEFAULTS = {
     ceo: 600,
     boss: 2000,
   },
+  enemyDamage: {
+    jira: 8, bug: 6, feature: 12, merge: 15, flaky: 5,
+    pm: 10, em: 10, vp: 15, ceo: 20, boss: 20,
+  },
   sprintDuration: 45,  // seconds per sprint
   xpMultiplier: 1.5,   // each level-up requires this × more XP than the previous
 };
@@ -23,6 +27,7 @@ function loadConfig() {
       const saved = JSON.parse(raw);
       return {
         enemyHp: { ...DEFAULTS.enemyHp, ...(saved.enemyHp || {}) },
+        enemyDamage: { ...DEFAULTS.enemyDamage, ...(saved.enemyDamage || {}) },
         sprintDuration: saved.sprintDuration ?? DEFAULTS.sprintDuration,
         xpMultiplier: saved.xpMultiplier ?? DEFAULTS.xpMultiplier,
       };
@@ -40,6 +45,7 @@ export function saveConfig() {
 export function resetConfig() {
   const def = JSON.parse(JSON.stringify(DEFAULTS));
   Object.assign(GAME_CONFIG.enemyHp, def.enemyHp);
+  Object.assign(GAME_CONFIG.enemyDamage, def.enemyDamage);
   GAME_CONFIG.sprintDuration = def.sprintDuration;
   GAME_CONFIG.xpMultiplier = def.xpMultiplier;
   localStorage.removeItem(STORAGE_KEY);

@@ -60,11 +60,28 @@ const ENEMY_LABELS = {
   boss: 'THE AI (boss base HP)',
 };
 
+const DAMAGE_LABELS = {
+  jira: 'Jira Ticket',
+  bug: 'Bug Report',
+  feature: 'Feature Request',
+  merge: 'Merge Conflict',
+  flaky: 'Flaky Test',
+  pm: 'Product Manager',
+  em: 'Engineering Manager',
+  vp: 'VP of Engineering',
+  ceo: 'CEO',
+  boss: 'THE AI (boss)',
+};
+
 function openAdminPanel() {
   // Populate fields from current config
   for (const [key, label] of Object.entries(ENEMY_LABELS)) {
     const el = document.getElementById(`admin-hp-${key}`);
     if (el) el.value = GAME_CONFIG.enemyHp[key];
+  }
+  for (const key of Object.keys(DAMAGE_LABELS)) {
+    const el = document.getElementById(`admin-damage-${key}`);
+    if (el) el.value = GAME_CONFIG.enemyDamage[key];
   }
   document.getElementById('admin-sprint-duration').value = GAME_CONFIG.sprintDuration;
   document.getElementById('admin-xp-multiplier').value = GAME_CONFIG.xpMultiplier;
@@ -96,6 +113,13 @@ function saveAdminPanel() {
     if (el) {
       const val = parseInt(el.value, 10);
       if (!isNaN(val) && val > 0) GAME_CONFIG.enemyHp[key] = val;
+    }
+  }
+  for (const key of Object.keys(DAMAGE_LABELS)) {
+    const el = document.getElementById(`admin-damage-${key}`);
+    if (el) {
+      const val = parseFloat(el.value);
+      if (!isNaN(val) && val > 0) GAME_CONFIG.enemyDamage[key] = val;
     }
   }
   const durationEl = document.getElementById('admin-sprint-duration');
@@ -544,6 +568,7 @@ function gameLoop(timestamp) {
   // Update players
   for (const p of players) {
     p.update(dt);
+    if (p._hitSoundCooldown > 0) p._hitSoundCooldown -= dt;
   }
 
   // Soft collision between players
@@ -747,12 +772,17 @@ function gameLoop(timestamp) {
       if (!p.alive) continue;
       const d = Math.hypot(p.x - e.x, p.y - e.y);
       if (d < p.radius + e.radius) {
-        const died = p.takeDamage(e.damage * dt * 3); // damage per second on contact
+        const died = p.takeDamage(e.damage * dt); // damage per second on contact
         if (died) {
           sound.playDeath();
           renderer.addFloatingText(p.x, p.y - 20, p.getDeathMessage(), '#ff4444', 2);
-        } else if (p.invincibleTimer <= 0.3 && p.invincibleTimer > 0.28) {
-          sound.playPlayerHit();
+        } else {
+          // Throttle hit sound to avoid audio spam
+          if (!p._hitSoundCooldown) p._hitSoundCooldown = 0;
+          if (p._hitSoundCooldown <= 0) {
+            sound.playPlayerHit();
+            p._hitSoundCooldown = 0.5;
+          }
         }
         // Push player away (frame-rate independent)
         if (d > 0) {

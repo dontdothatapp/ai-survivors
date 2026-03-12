@@ -37,7 +37,7 @@ export class Player {
     this.damageMultiplier = 1;
     this.fireRateMultiplier = 1;
     this.pickupRadius = 50;
-    this.invincibleTimer = 0;
+    this.damageFlash = 0; // red tint timer when taking damage
     this.kills = 0;
     // Weapon-specific state
     this.orbitAngle = 0;
@@ -49,8 +49,7 @@ export class Player {
 
   update(dt) {
     if (!this.alive) return;
-    if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
-
+    if (this.damageFlash > 0) this.damageFlash -= dt;
     // Normalize and apply movement
     const len = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
     if (len > 0.1) {
@@ -72,9 +71,9 @@ export class Player {
   }
 
   takeDamage(amount) {
-    if (!this.alive || this.invincibleTimer > 0) return false;
+    if (!this.alive) return false;
     this.hp -= amount;
-    this.invincibleTimer = 0.3; // brief i-frames
+    this.damageFlash = 0.15; // brief red tint
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
@@ -119,26 +118,27 @@ export class Enemy {
     // Set stats by type
     const scale = 1 + (wave - 1) * 0.05; // slight scaling with wave
     const cfg = GAME_CONFIG.enemyHp;
+    const dmg = GAME_CONFIG.enemyDamage;
     switch (type) {
       case 'jira':
         this.hp = (cfg.jira ?? 15) * scale;
         this.maxHp = this.hp;
         this.speed = 60;
-        this.damage = 8;
+        this.damage = dmg.jira ?? 8;
         this.xpValue = 3;
         break;
       case 'bug':
         this.hp = (cfg.bug ?? 10) * scale;
         this.maxHp = this.hp;
         this.speed = 110;
-        this.damage = 6;
+        this.damage = dmg.bug ?? 6;
         this.xpValue = 3;
         break;
       case 'feature':
         this.hp = 40 * scale;
         this.maxHp = this.hp;
         this.speed = 40;
-        this.damage = 12;
+        this.damage = dmg.feature ?? 12;
         this.xpValue = 8;
         this.radius = 18;
         break;
@@ -146,7 +146,7 @@ export class Enemy {
         this.hp = 80 * scale;
         this.maxHp = this.hp;
         this.speed = 30;
-        this.damage = 15;
+        this.damage = dmg.merge ?? 15;
         this.xpValue = 12;
         this.radius = 20;
         break;
@@ -154,14 +154,14 @@ export class Enemy {
         this.hp = 12 * scale;
         this.maxHp = this.hp;
         this.speed = 50;
-        this.damage = 5;
+        this.damage = dmg.flaky ?? 5;
         this.xpValue = 5;
         break;
       case 'pm':
         this.hp = (cfg.pm ?? 150) * scale;
         this.maxHp = this.hp;
         this.speed = 35;
-        this.damage = 10;
+        this.damage = dmg.pm ?? 10;
         this.xpValue = 25;
         this.radius = 22;
         break;
@@ -169,7 +169,7 @@ export class Enemy {
         this.hp = (cfg.em ?? 200) * scale;
         this.maxHp = this.hp;
         this.speed = 30;
-        this.damage = 10;
+        this.damage = dmg.em ?? 10;
         this.xpValue = 30;
         this.radius = 22;
         break;
@@ -177,7 +177,7 @@ export class Enemy {
         this.hp = (cfg.vp ?? 300) * scale;
         this.maxHp = this.hp;
         this.speed = 25;
-        this.damage = 15;
+        this.damage = dmg.vp ?? 15;
         this.xpValue = 50;
         this.radius = 24;
         break;
@@ -185,7 +185,7 @@ export class Enemy {
         this.hp = (cfg.ceo ?? 600) * scale;
         this.maxHp = this.hp;
         this.speed = 20;
-        this.damage = 20;
+        this.damage = dmg.ceo ?? 20;
         this.xpValue = 80;
         this.radius = 26;
         break;
@@ -201,7 +201,7 @@ export class Enemy {
         this.hp = (cfg.boss ?? 2000) + wave * 100;
         this.maxHp = this.hp;
         this.speed = 20;
-        this.damage = 20;
+        this.damage = dmg.boss ?? 20;
         this.xpValue = 200;
         this.radius = 40;
         break;
@@ -562,12 +562,13 @@ export function upgradeEnemyType(enemy) {
 
   const scale = 1 + (enemy.wave - 1) * 0.05;
   const cfg = GAME_CONFIG.enemyHp;
+  const dmg = GAME_CONFIG.enemyDamage;
   switch (newType) {
     case 'bug':
       enemy.hp = (cfg.bug ?? 10) * scale;
       enemy.maxHp = enemy.hp;
       enemy.speed = 110;
-      enemy.damage = 6;
+      enemy.damage = dmg.bug ?? 6;
       enemy.xpValue = 3;
       enemy.radius = 14;
       break;
@@ -575,7 +576,7 @@ export function upgradeEnemyType(enemy) {
       enemy.hp = 40 * scale;
       enemy.maxHp = enemy.hp;
       enemy.speed = 40;
-      enemy.damage = 12;
+      enemy.damage = dmg.feature ?? 12;
       enemy.xpValue = 8;
       enemy.radius = 18;
       break;
@@ -583,7 +584,7 @@ export function upgradeEnemyType(enemy) {
       enemy.hp = (cfg.pm ?? 150) * scale;
       enemy.maxHp = enemy.hp;
       enemy.speed = 35;
-      enemy.damage = 10;
+      enemy.damage = dmg.pm ?? 10;
       enemy.xpValue = 25;
       enemy.radius = 22;
       break;
@@ -591,7 +592,7 @@ export function upgradeEnemyType(enemy) {
       enemy.hp = (cfg.em ?? 200) * scale;
       enemy.maxHp = enemy.hp;
       enemy.speed = 30;
-      enemy.damage = 10;
+      enemy.damage = dmg.em ?? 10;
       enemy.xpValue = 30;
       enemy.radius = 22;
       break;
@@ -599,7 +600,7 @@ export function upgradeEnemyType(enemy) {
       enemy.hp = (cfg.vp ?? 300) * scale;
       enemy.maxHp = enemy.hp;
       enemy.speed = 25;
-      enemy.damage = 15;
+      enemy.damage = dmg.vp ?? 15;
       enemy.xpValue = 50;
       enemy.radius = 24;
       break;
@@ -607,7 +608,7 @@ export function upgradeEnemyType(enemy) {
       enemy.hp = (cfg.ceo ?? 600) * scale;
       enemy.maxHp = enemy.hp;
       enemy.speed = 20;
-      enemy.damage = 20;
+      enemy.damage = dmg.ceo ?? 20;
       enemy.xpValue = 80;
       enemy.radius = 26;
       break;
