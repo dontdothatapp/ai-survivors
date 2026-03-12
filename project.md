@@ -22,7 +22,8 @@ AI_survivors/
 └── public/
     ├── game.html           # Game screen (laptop/TV)
     ├── controller.html     # Phone controller
-    ├── avatars/            # Optimized character PNGs (~30-40KB each, 256px)
+    ├── avatars/            # Optimized character PNGs (~30-40KB each, 256px) + aleksei ally avatar
+    ├── sounds/             # Audio files (aleksei.mp3)
     ├── css/
     │   ├── game.css
     │   └── controller.css
@@ -30,15 +31,15 @@ AI_survivors/
         ├── game/
         │   ├── main.js         # Game loop, orchestration, lobby/game-over flow
         │   ├── renderer.js     # All canvas drawing, camera, screen shake, floating text
-        │   ├── entities.js     # Player, Enemy, Projectile, XPGem classes
+        │   ├── entities.js     # Player, Enemy, Projectile, XPGem, Ally classes
         │   ├── characters.js   # Character definitions (id, name, title, avatar, color)
         │   ├── waves.js        # WaveManager — enemy spawning & progression
         │   ├── weapons.js      # WEAPON_DEFS + updateWeapons()
         │   ├── upgrades.js     # Upgrade pool + rollUpgrades() / applyUpgrade()
-        │   ├── globalEvents.js # GlobalEventManager — mid-sprint random chaos events
+        │   ├── globalEvents.js # GlobalEventManager — predefined per-sprint events
         │   ├── config.js       # GAME_CONFIG — persistent admin settings (localStorage)
         │   ├── sprites.js      # Programmatic pixel art + avatar image loading/caching
-        │   ├── sound.js        # Web Audio API oscillator-based retro beeps
+        │   ├── sound.js        # Web Audio API retro beeps + Aleksei ally music
         │   └── network.js      # Game-screen WebSocket client + broadcast helpers
         └── controller/
             ├── controller.js  # Phone WS connection, character select, state display, upgrade UI
@@ -100,13 +101,14 @@ Each frame:
 2. `WaveManager.update()` — ticks sprint timer; if sprint pause active, counts down and returns early
 3. **Sprint pause check** — if new sprint just started (3s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
 4. **Global event pause check** — if `globalEventManager.pauseActive`, skip simulation, render event announcement overlay; on transition execute the event effect
-5. **Mid-sprint trigger** — at the midpoint of each sprint (22.5s), trigger a random global event with 3s pause
+5. **Mid-sprint trigger** — at the midpoint of each sprint (22.5s), trigger the predefined global event for that sprint with 3s pause
 6. Player `update(dt)` — apply joystick input, move, update duck orbit angle
 3. Soft player-player collision (push apart)
 4. Coffee aura boost (temporarily bumps `fireRateMultiplier`)
 5. `updateWeapons(dt, player, projectiles, enemies)` for each player
 6. Rubber duck contact damage check
-7. Enemy update — frozen timer, then type-specific AI
+7. Enemy update — feedback enemies fly straight (skip AI), others: frozen timer then type-specific AI
+7b. Ally update — move linearly, damage enemies on contact, cleanup when off-screen; stop Aleksei music when ally leaves
 8. Projectile update + enemy collision detection
 9. Enemy-player contact damage
 10. XP gem magnet + collection → team XP pool → voting trigger on level-up
@@ -151,6 +153,15 @@ Each frame:
 - `vx/vy`, `damage`, `pierce` (decrements per hit), `hitEnemies` Set
 - `isAOE` flag — AOE projectiles check radius instead of point collision
 - `homing` flag — hotfix projectiles steer toward nearest enemy
+
+### Ally
+- Spawned by the Aleksei global event (sprint 3)
+- `characterId='aleksei'`, `radius=40` (boss size), `damage=5`
+- Moves in a straight line across the screen through the player area
+- Damages enemies on contact with 0.5s cooldown per enemy (via `hitCooldowns` Map)
+- `update(dt, enemies)` returns list of killed enemies
+- Rendered at 64x64 with green glow ring; Aleksei avatar image preloaded via `preloadAllyAvatar()`
+- Aleksei.mp3 music plays while ally is on screen, stops when ally leaves
 
 ### XPGem
 - Magnets toward nearest player within `pickupRadius`
@@ -242,23 +253,23 @@ XP is shared in a single **team pool** (`teamXP` in `main.js`). When the team le
 - HUD: wave/time top-left, engineer count top-right, mini HP bars per player, team XP bar top-center, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
 - Voting overlay: dark overlay + "LEVEL UP!" title + 3 upgrade cards (name + description) + colored vote dots below each card + vote progress counter
 - Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
-- Global event announcement overlay: dark overlay + scanline flicker + `[ GLOBAL EVENT ]` label + pulsing red event name (42px bold) + description + "Activating in N..." countdown
+- Ally rendering: 64x64 avatar image with green glow ring (drawn between enemies and players)
+- Global event announcement overlay: dark overlay + scanline flicker + label + pulsing event name (42px bold) + description + countdown; red theme for negative events, green theme for positive (aleksei)
 
 ---
 
 ## Global Events (`globalEvents.js`)
 
-Random chaos events that fire once per sprint at the midpoint (22.5s into each 45s sprint, sprints 1–6). The game pauses for 3 seconds showing a dramatic full-screen overlay with 8-bit alarm sound, then the event effect executes when the pause ends.
+Predefined events that fire once per sprint at the midpoint (22.5s into each 45s sprint, sprints 1–6). Each sprint has a fixed event via `SPRINT_EVENT_MAP`. The game pauses for 3 seconds showing a dramatic full-screen overlay with 8-bit alarm sound, then the event effect executes when the pause ends. Positive events (aleksei) use green-themed styling ("ALLY INCOMING" label, green scanlines).
 
-Events are selected via weighted random from the `EVENTS` array (total weight = 115). Event names and descriptions are editable in the Admin Panel.
-
-| ID | Name | Description | Weight | Effect |
-|----|------|-------------|--------|--------|
-| `reorg` | REORG | One random engineer has been let go | 15 | Kills one random alive player |
-| `new_teams` | NEW TEAMS | 20% of enemies just got promoted | 25 | Promotes 20% of alive enemies up the hierarchy (jira→bug→feature→pm→em→vp→ceo) |
-| `we_need_ai` | WE NEED AI | 10 AI-powered enemies have entered the chat | 35 | Spawns 10 `ai_mini` enemies around players (bypasses 40-enemy cap) |
-| `micromanager` | MICROMANAGER | 2 random upgrades have been downgraded | 20 | Reverts up to 2 previously applied upgrades (excluding `new_weapon`) |
-| `stakeholders` | STAKEHOLDERS | Each engineer lost a weapon | 20 | Removes 1 random weapon from each player (protects `code_review`) |
+| Sprint | ID | Name | Description | Effect |
+|--------|----|------|-------------|--------|
+| 1 | `new_teams` | NEW TEAMS | 20% of enemies just got promoted | Promotes 20% of alive enemies up the hierarchy (jira→bug→feature→pm→em→vp→ceo) |
+| 2 | `we_need_ai` | WE NEED AI | 10 AI-powered enemies have entered the chat | Spawns 10 `ai_mini` enemies around players (bypasses 40-enemy cap) |
+| 3 | `aleksei` | ALEKSEI | A friendly face has appeared to help! | Spawns an `Ally` that crosses the screen dealing 5 damage to enemies on contact; plays Aleksei.mp3 music |
+| 4 | `micromanager` | MICROMANAGER | 2 random upgrades have been downgraded | Reverts up to 2 previously applied upgrades (excluding `new_weapon`) |
+| 5 | `feedback` | FEEDBACK | 10 jira tickets are flying your way! | Spawns 10 jira enemies flying in straight lines toward players (`isFeedback` flag, bypass cap, skip normal AI, despawn at 1500px) |
+| 6 | `reorg` | REORG | One random engineer has been let go | Kills one random alive player |
 
 The `GlobalEventManager` tracks `upgradeHistory[]` (populated via `recordUpgrade()` on each vote resolution) so the Micromanager event knows which upgrades to revert.
 
@@ -287,7 +298,7 @@ Accessible via the **⚙ ADMIN** button on the lobby screen. Settings persist in
 | **Enemy Base HP** | Per-type HP before wave scaling (+5%/wave). Covers jira, bug, pm, em, vp, ceo, boss. | See entity table above |
 | **Kills to advance sprint** | Number of kills in the current sprint that trigger the next sprint early. `0` = time-based only (45s). | 0 |
 | **XP multiplier** | Each level-up requires this multiple of the previous threshold. `1.5` → Lv2 needs 23 XP, Lv3 needs 34, etc. | 1.5 |
-| **Global Events** | Editable name and description for each of the 5 global events. Changes apply immediately to the in-memory `EVENTS` array. | See Global Events table |
+| **Global Events** | Editable name and description for each of the 6 global events. Changes apply immediately to the in-memory `EVENTS` array. | See Global Events table |
 
 `RESET DEFAULTS` restores all values and clears localStorage.
 

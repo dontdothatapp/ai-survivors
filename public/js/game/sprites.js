@@ -31,6 +31,14 @@ export function preloadAvatars(characters) {
   }
 }
 
+// Preload ally avatar (e.g. Aleksei)
+export function preloadAllyAvatar(id, src) {
+  if (avatarCache.has(id)) return;
+  const img = new Image();
+  img.src = src;
+  avatarCache.set(id, img);
+}
+
 // Get a loaded avatar image (or null if not ready)
 export function getAvatarImage(characterId) {
   const img = avatarCache.get(characterId);

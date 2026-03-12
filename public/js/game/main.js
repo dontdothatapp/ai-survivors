@@ -1,18 +1,19 @@
 // Main game loop — orchestration, canvas setup, state management
-import { Player, Enemy, Projectile, XPGem, upgradeEnemyType } from './entities.js';
+import { Player, Enemy, Projectile, XPGem, Ally, upgradeEnemyType } from './entities.js';
 import { WEAPON_DEFS, updateWeapons } from './weapons.js';
 import { WaveManager } from './waves.js';
 import { rollUpgrades, applyUpgrade, applyUpgradeToAll, revertUpgradeFromAll } from './upgrades.js';
 import { Renderer } from './renderer.js';
 import { GlobalEventManager, EVENTS } from './globalEvents.js';
 import { CHARACTERS } from './characters.js';
-import { preloadAvatars } from './sprites.js';
+import { preloadAvatars, preloadAllyAvatar } from './sprites.js';
 import * as network from './network.js';
 import * as sound from './sound.js';
 import { GAME_CONFIG, saveConfig, resetConfig } from './config.js';
 
 // --- Preload avatars ---
 preloadAvatars(CHARACTERS);
+preloadAllyAvatar('aleksei', '/avatars/aleksei.png');
 
 // --- State ---
 const canvas = document.getElementById('gameCanvas');
@@ -22,6 +23,7 @@ let players = [];
 let enemies = [];
 let projectiles = [];
 let xpGems = [];
+let allies = [];
 let waveManager = new WaveManager();
 let globalEventManager = new GlobalEventManager();
 let midSprintEventFired = false;
@@ -290,6 +292,7 @@ function startGame() {
   enemies = [];
   projectiles = [];
   xpGems = [];
+  allies = [];
   gameTime = 0;
   teamXP = { xp: 0, level: 1, xpToNext: 15 };
   votingState = null;
@@ -370,7 +373,7 @@ function gameLoop(timestamp) {
     // Still render but skip simulation
     renderer.updateCamera(players, dt);
     renderer.render({
-      players, enemies, projectiles, xpGems,
+      players, enemies, projectiles, xpGems, allies,
       wave: waveManager.currentWave,
       gameTime,
       teamXP,
@@ -414,7 +417,7 @@ function gameLoop(timestamp) {
   if (waveManager.sprintPauseActive) {
     renderer.updateCamera(players, dt);
     renderer.render({
-      players, enemies, projectiles, xpGems,
+      players, enemies, projectiles, xpGems, allies,
       wave: waveManager.currentWave,
       gameTime,
       teamXP,
@@ -443,7 +446,7 @@ function gameLoop(timestamp) {
   if (globalEventManager.pauseActive) {
     renderer.updateCamera(players, dt);
     renderer.render({
-      players, enemies, projectiles, xpGems,
+      players, enemies, projectiles, xpGems, allies,
       wave: waveManager.currentWave,
       gameTime,
       teamXP,
@@ -463,7 +466,7 @@ function gameLoop(timestamp) {
   if (waveManager.currentWave > 0 && waveManager.currentWave < 7 &&
       !midSprintEventFired && waveManager.waveTimer <= 22.5) {
     midSprintEventFired = true;
-    globalEventManager.trigger();
+    globalEventManager.trigger(waveManager.currentWave);
     sound.playGlobalEvent();
   }
 
@@ -574,12 +577,48 @@ function gameLoop(timestamp) {
 
   // Enemy frozen timer
   for (const e of enemies) {
+    // Feedback enemies fly in straight lines, skip normal AI
+    if (e.isFeedback) {
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      // Remove when far from all players
+      let minDist = Infinity;
+      for (const p of players) {
+        if (!p.alive) continue;
+        minDist = Math.min(minDist, Math.hypot(e.x - p.x, e.y - p.y));
+      }
+      if (minDist > 1500) e.alive = false;
+      continue;
+    }
     if (e.frozenTimer === undefined) e.frozenTimer = 0;
     if (e.frozenTimer > 0) {
       e.frozenTimer -= dt;
       continue; // skip movement
     }
     e.update(dt, players, enemies, spawnEnemy);
+  }
+
+  // Update allies
+  for (const a of allies) {
+    const killed = a.update(dt, enemies);
+    for (const e of killed) {
+      onEnemyKilled(e, null);
+      renderer.addFloatingText(e.x, e.y - 20, 'ALEKSEI!', '#44ff88', 1.5);
+    }
+  }
+  // Clean up allies far from all players
+  const prevAllyCount = allies.length;
+  allies = allies.filter(a => {
+    let minDist = Infinity;
+    for (const p of players) {
+      if (!p.alive) continue;
+      minDist = Math.min(minDist, Math.hypot(a.x - p.x, a.y - p.y));
+    }
+    return minDist <= 2000;
+  });
+  // Stop Aleksei music when ally leaves
+  if (allies.length < prevAllyCount && !allies.some(a => a.characterId === 'aleksei')) {
+    sound.stopAlekseiMusic();
   }
 
   // Update projectiles
@@ -707,7 +746,7 @@ function gameLoop(timestamp) {
   }
 
   renderer.render({
-    players, enemies, projectiles, xpGems,
+    players, enemies, projectiles, xpGems, allies,
     wave: waveManager.currentWave,
     gameTime,
     teamXP,
@@ -826,14 +865,59 @@ function executeGlobalEvent(event) {
       }
       break;
     }
-    case 'stakeholders': {
-      // Remove 1 random weapon from each alive player (protect code_review)
-      for (const p of alivePlayers) {
-        const removable = p.weapons.filter(w => w.type !== 'code_review');
-        if (removable.length === 0) continue;
-        const victim = removable[Math.floor(Math.random() * removable.length)];
-        p.weapons = p.weapons.filter(w => w !== victim);
-        renderer.addFloatingText(p.x, p.y - 20, `-${victim.type}`, '#ff4444', 1.5);
+    case 'aleksei': {
+      // Spawn an ally that crosses the screen through the player area
+      let cx = 0, cy = 0;
+      for (const p of alivePlayers) { cx += p.x; cy += p.y; }
+      cx /= alivePlayers.length;
+      cy /= alivePlayers.length;
+      // Pick a random side to enter from
+      const side = Math.floor(Math.random() * 4);
+      let startX, startY, endX, endY;
+      const offset = 800;
+      switch (side) {
+        case 0: // from left
+          startX = cx - offset; startY = cy + (Math.random() - 0.5) * 400;
+          endX = cx + offset; endY = cy + (Math.random() - 0.5) * 400;
+          break;
+        case 1: // from right
+          startX = cx + offset; startY = cy + (Math.random() - 0.5) * 400;
+          endX = cx - offset; endY = cy + (Math.random() - 0.5) * 400;
+          break;
+        case 2: // from top
+          startX = cx + (Math.random() - 0.5) * 400; startY = cy - offset;
+          endX = cx + (Math.random() - 0.5) * 400; endY = cy + offset;
+          break;
+        default: // from bottom
+          startX = cx + (Math.random() - 0.5) * 400; startY = cy + offset;
+          endX = cx + (Math.random() - 0.5) * 400; endY = cy - offset;
+          break;
+      }
+      allies.push(new Ally('aleksei', startX, startY, endX, endY));
+      sound.playAlekseiMusic();
+      break;
+    }
+    case 'feedback': {
+      // Spawn 10 jira tickets that fly in straight lines
+      let cx = 0, cy = 0;
+      for (const p of alivePlayers) { cx += p.x; cy += p.y; }
+      cx /= alivePlayers.length;
+      cy /= alivePlayers.length;
+      for (let i = 0; i < 10; i++) {
+        const angle = (i / 10) * Math.PI * 2;
+        const dist = 500 + Math.random() * 200;
+        const spawnX = cx + Math.cos(angle) * dist;
+        const spawnY = cy + Math.sin(angle) * dist;
+        const e = new Enemy('jira', spawnX, spawnY, waveManager.currentWave);
+        // Aim toward center of players
+        const dx = cx - spawnX;
+        const dy = cy - spawnY;
+        const len = Math.hypot(dx, dy) || 1;
+        const speed = 180 + Math.random() * 60;
+        e.vx = (dx / len) * speed;
+        e.vy = (dy / len) * speed;
+        e.isFeedback = true;
+        enemies.push(e); // bypass cap
       }
       break;
     }

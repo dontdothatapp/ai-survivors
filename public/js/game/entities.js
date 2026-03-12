@@ -501,6 +501,52 @@ export class XPGem {
   }
 }
 
+export class Ally {
+  constructor(characterId, startX, startY, endX, endY) {
+    this.characterId = characterId;
+    this.x = startX;
+    this.y = startY;
+    this.radius = 40; // boss size
+    this.damage = 5;
+    this.alive = true;
+    // Compute straight-line velocity
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const len = Math.hypot(dx, dy) || 1;
+    const speed = 150;
+    this.vx = (dx / len) * speed;
+    this.vy = (dy / len) * speed;
+    this.hitCooldowns = new Map(); // enemy -> timer
+  }
+
+  update(dt, enemies) {
+    if (!this.alive) return [];
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Decrement cooldowns
+    for (const [enemy, timer] of this.hitCooldowns) {
+      const newTimer = timer - dt;
+      if (newTimer <= 0) this.hitCooldowns.delete(enemy);
+      else this.hitCooldowns.set(enemy, newTimer);
+    }
+
+    // Damage enemies on contact
+    const killed = [];
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      if (this.hitCooldowns.has(e)) continue;
+      const d = Math.hypot(e.x - this.x, e.y - this.y);
+      if (d < e.radius + this.radius) {
+        this.hitCooldowns.set(e, 0.5);
+        const wasKilled = e.takeDamage(this.damage);
+        if (wasKilled) killed.push(e);
+      }
+    }
+    return killed;
+  }
+}
+
 const PROMOTION_HIERARCHY = ['jira', 'bug', 'feature', 'pm', 'em', 'vp', 'ceo'];
 
 export function upgradeEnemyType(enemy) {

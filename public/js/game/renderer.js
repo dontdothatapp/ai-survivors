@@ -92,6 +92,14 @@ export class Renderer {
       this._drawEnemy(e);
     }
 
+    // Allies (between enemies and players)
+    if (state.allies) {
+      for (const a of state.allies) {
+        if (!a.alive) continue;
+        this._drawAlly(a);
+      }
+    }
+
     // Players
     for (const p of players) {
       if (!p.alive) continue;
@@ -283,6 +291,33 @@ export class Renderer {
     }
   }
 
+  _drawAlly(ally) {
+    const { ctx } = this;
+    const { x, y, characterId, radius } = ally;
+
+    // Green glow ring
+    ctx.strokeStyle = '#44ff88';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#44ff88';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Avatar image at 64x64 (boss size)
+    const avatarImg = characterId ? getAvatarImage(characterId) : null;
+    if (avatarImg) {
+      ctx.drawImage(avatarImg, x - 32, y - 32, 64, 64);
+    } else {
+      // Fallback green circle
+      ctx.fillStyle = '#44ff88';
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   _drawProjectile(proj) {
     const { ctx } = this;
 
@@ -380,6 +415,7 @@ export class Renderer {
     const { ctx, width, height } = this;
     const cx = width / 2;
     const cy = height / 2;
+    const isPositive = announcement.id === 'aleksei';
 
     // Dark overlay
     ctx.fillStyle = 'rgba(0, 0, 10, 0.82)';
@@ -387,23 +423,27 @@ export class Renderer {
 
     // Scanline flicker effect
     const flicker = Math.sin(announcement.timer * 12) * 0.04;
-    ctx.fillStyle = `rgba(255, 50, 50, ${0.03 + flicker})`;
+    if (isPositive) {
+      ctx.fillStyle = `rgba(50, 255, 100, ${0.03 + flicker})`;
+    } else {
+      ctx.fillStyle = `rgba(255, 50, 50, ${0.03 + flicker})`;
+    }
     for (let y = 0; y < height; y += 4) {
       ctx.fillRect(0, y, width, 1);
     }
 
-    // Warning label
-    ctx.fillStyle = '#ff2222';
+    // Warning/ally label
+    ctx.fillStyle = isPositive ? '#44ff88' : '#ff2222';
     ctx.font = 'bold 14px "Courier New"';
     ctx.textAlign = 'center';
-    ctx.fillText('[ GLOBAL EVENT ]', cx, cy - 60);
+    ctx.fillText(isPositive ? '[ ALLY INCOMING ]' : '[ GLOBAL EVENT ]', cx, cy - 60);
 
     // Event name — large, pulsing
     const pulse = 1 + Math.sin(announcement.timer * 8) * 0.05;
     ctx.save();
     ctx.translate(cx, cy - 10);
     ctx.scale(pulse, pulse);
-    ctx.fillStyle = '#ff4444';
+    ctx.fillStyle = isPositive ? '#44ff88' : '#ff4444';
     ctx.font = 'bold 42px "Courier New"';
     ctx.fillText(announcement.name, 0, 0);
     ctx.restore();
@@ -418,7 +458,7 @@ export class Renderer {
     const secs = Math.ceil(announcement.timer);
     ctx.fillStyle = '#555';
     ctx.font = '13px "Courier New"';
-    ctx.fillText(`Activating in ${secs}...`, cx, cy + 90);
+    ctx.fillText(isPositive ? `Arriving in ${secs}...` : `Activating in ${secs}...`, cx, cy + 90);
   }
 
   _drawVotingOverlay(votingState) {

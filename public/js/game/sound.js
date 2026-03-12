@@ -110,6 +110,24 @@ export function playGlobalEvent() {
   } catch {}
 }
 
+// Aleksei ally music
+let alekseiAudio = null;
+
+export function playAlekseiMusic() {
+  stopAlekseiMusic();
+  alekseiAudio = new Audio('/sounds/aleksei.mp3');
+  alekseiAudio.volume = 0.4;
+  alekseiAudio.play().catch(() => {});
+}
+
+export function stopAlekseiMusic() {
+  if (alekseiAudio) {
+    alekseiAudio.pause();
+    alekseiAudio.currentTime = 0;
+    alekseiAudio = null;
+  }
+}
+
 // Call on first user interaction to unlock audio
 export function unlockAudio() {
   getCtx();

@@ -1,24 +1,23 @@
-// Global events — random chaos mid-sprint
+// Global events — predefined per sprint
 const EVENTS = [
-  { id: 'reorg', name: 'REORG', desc: 'One random engineer has been let go', weight: 15 },
-  { id: 'new_teams', name: 'NEW TEAMS', desc: '20% of enemies just got promoted', weight: 25 },
-  { id: 'we_need_ai', name: 'WE NEED AI', desc: '10 AI-powered enemies have entered the chat', weight: 35 },
-  { id: 'micromanager', name: 'MICROMANAGER', desc: '2 random upgrades have been downgraded', weight: 20 },
-  { id: 'stakeholders', name: 'STAKEHOLDERS', desc: 'Each engineer lost a weapon', weight: 20 },
+  { id: 'new_teams', name: 'NEW TEAMS', desc: '20% of enemies just got promoted' },
+  { id: 'we_need_ai', name: 'WE NEED AI', desc: '10 AI-powered enemies have entered the chat' },
+  { id: 'aleksei', name: 'ALEKSEI', desc: 'A friendly face has appeared to help!' },
+  { id: 'micromanager', name: 'MICROMANAGER', desc: '2 random upgrades have been downgraded' },
+  { id: 'feedback', name: 'FEEDBACK', desc: '10 jira tickets are flying your way!' },
+  { id: 'reorg', name: 'REORG', desc: 'One random engineer has been let go' },
 ];
 
-const TOTAL_WEIGHT = EVENTS.reduce((sum, e) => sum + e.weight, 0);
+const SPRINT_EVENT_MAP = {
+  1: 'new_teams',
+  2: 'we_need_ai',
+  3: 'aleksei',
+  4: 'micromanager',
+  5: 'feedback',
+  6: 'reorg',
+};
 
-function pickWeightedEvent() {
-  let roll = Math.random() * TOTAL_WEIGHT;
-  for (const event of EVENTS) {
-    roll -= event.weight;
-    if (roll <= 0) return event;
-  }
-  return EVENTS[EVENTS.length - 1];
-}
-
-export { EVENTS };
+export { EVENTS, SPRINT_EVENT_MAP };
 
 export class GlobalEventManager {
   constructor() {
@@ -29,10 +28,13 @@ export class GlobalEventManager {
     this.pendingEvent = null; // event to execute when pause ends
   }
 
-  // Called mid-sprint — picks event, starts 3s pause
-  trigger() {
-    const event = pickWeightedEvent();
-    this.activeAnnouncement = { name: event.name, desc: event.desc, timer: 3 };
+  // Called mid-sprint — looks up event for the given wave, starts 3s pause
+  trigger(waveNumber) {
+    const eventId = SPRINT_EVENT_MAP[waveNumber];
+    if (!eventId) return null;
+    const event = EVENTS.find(e => e.id === eventId);
+    if (!event) return null;
+    this.activeAnnouncement = { name: event.name, desc: event.desc, id: event.id, timer: 3 };
     this.pauseActive = true;
     this.pauseTimer = 3;
     this.pendingEvent = event;
