@@ -22,6 +22,7 @@ AI_survivors/
 └── public/
     ├── game.html           # Game screen (laptop/TV)
     ├── controller.html     # Phone controller
+    ├── QR.png              # QR code image for phone join (displayed on lobby screen)
     ├── avatars/            # Optimized character PNGs (~30-40KB each, 256px) + aleksei ally avatar
     ├── sounds/             # Audio files (aleksei.mp3, ai_final_boss.mp3)
     ├── css/
@@ -332,7 +333,6 @@ Implemented in: `game.html` (credits DOM), `game.css` (scrolling animation + sty
 
 ## Known Gaps / Future Work
 
-- No actual QR code (shows URL as text instead — needs a QR library or pre-generated image)
 - Players are soft-pulled toward the visible viewport (gentle force, not hard clamp)
 - Debug player (id: -1) auto-votes for first upgrade option after 1s
 - No persistent scores / leaderboard

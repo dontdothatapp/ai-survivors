@@ -130,22 +130,6 @@ adminResetBtn.addEventListener('click', () => {
 function generateQRUrl() {
   const url = `${location.protocol}//${location.host}/controller.html`;
   joinUrlEl.textContent = url;
-  // Simple QR code using an external API rendered to canvas
-  const qrCanvas = document.getElementById('qrCanvas');
-  const qrCtx = qrCanvas.getContext('2d');
-  qrCtx.fillStyle = '#fff';
-  qrCtx.fillRect(0, 0, 200, 200);
-  qrCtx.fillStyle = '#000';
-  qrCtx.font = 'bold 14px "Courier New"';
-  qrCtx.textAlign = 'center';
-  qrCtx.fillText('Open this URL', 100, 80);
-  qrCtx.fillText('on your phone:', 100, 100);
-  qrCtx.font = '10px "Courier New"';
-  // Wrap the URL
-  const parts = url.match(/.{1,24}/g) || [url];
-  parts.forEach((part, i) => {
-    qrCtx.fillText(part, 100, 125 + i * 16);
-  });
 }
 
 function updateLobbyUI() {
