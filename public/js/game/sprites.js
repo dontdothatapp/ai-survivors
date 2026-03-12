@@ -1,6 +1,8 @@
 // Programmatic pixel art — all sprites drawn to offscreen canvases
+// + avatar image loading for player characters
 
 const cache = new Map();
+const avatarCache = new Map(); // characterId -> Image
 
 function createSprite(key, w, h, drawFn) {
   if (cache.has(key)) return cache.get(key);
@@ -17,6 +19,23 @@ function createSprite(key, w, h, drawFn) {
 function px(ctx, x, y, size, color) {
   ctx.fillStyle = color;
   ctx.fillRect(x * size, y * size, size, size);
+}
+
+// Preload all avatar images
+export function preloadAvatars(characters) {
+  for (const char of characters) {
+    if (avatarCache.has(char.id)) continue;
+    const img = new Image();
+    img.src = char.avatar;
+    avatarCache.set(char.id, img);
+  }
+}
+
+// Get a loaded avatar image (or null if not ready)
+export function getAvatarImage(characterId) {
+  const img = avatarCache.get(characterId);
+  if (img && img.complete && img.naturalWidth > 0) return img;
+  return null;
 }
 
 export function getPlayerSprite(color) {

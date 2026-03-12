@@ -44,6 +44,20 @@ const wss = new WebSocketServer({ server });
 let gameScreen = null;
 const controllers = new Map(); // playerId -> ws
 let nextPlayerId = 0;
+const takenCharacters = new Map(); // characterId -> playerId
+
+function getAvailableCharacters() {
+  const taken = [...takenCharacters.keys()];
+  return taken;
+}
+
+function broadcastCharactersUpdate() {
+  const taken = getAvailableCharacters();
+  const msg = JSON.stringify({ type: 'characters_update', taken });
+  for (const [, cws] of controllers) {
+    if (cws.readyState === 1) cws.send(msg);
+  }
+}
 
 wss.on('connection', (ws, req) => {
   const url = req.url;
@@ -72,9 +86,9 @@ wss.on('connection', (ws, req) => {
         }
       } catch {}
     });
-    // Notify game screen of all currently connected players
-    for (const [pid] of controllers) {
-      ws.send(JSON.stringify({ type: 'player_joined', playerId: pid }));
+    // Notify game screen of all currently connected players who have selected characters
+    for (const [characterId, playerId] of takenCharacters) {
+      ws.send(JSON.stringify({ type: 'player_joined', playerId, characterId }));
     }
     return;
   }
@@ -82,26 +96,59 @@ wss.on('connection', (ws, req) => {
   if (url === '/controller') {
     const playerId = nextPlayerId++;
     controllers.set(playerId, ws);
-    ws.send(JSON.stringify({ type: 'assigned', playerId }));
-    // Tell game screen
-    if (gameScreen && gameScreen.readyState === 1) {
-      gameScreen.send(JSON.stringify({ type: 'player_joined', playerId }));
-    }
+    // Send assigned + taken characters so controller can show selection UI
+    ws.send(JSON.stringify({
+      type: 'assigned',
+      playerId,
+      taken: getAvailableCharacters(),
+    }));
+    // Don't send player_joined to game screen yet — wait for character selection
+
     ws.on('message', (raw) => {
-      // Forward input to game screen
-      if (gameScreen && gameScreen.readyState === 1) {
-        try {
-          const msg = JSON.parse(raw);
+      try {
+        const msg = JSON.parse(raw);
+
+        if (msg.type === 'character_select') {
+          const characterId = msg.characterId;
+          // Check if character is available
+          if (takenCharacters.has(characterId)) {
+            ws.send(JSON.stringify({ type: 'character_rejected', characterId }));
+            return;
+          }
+          // Mark as taken
+          takenCharacters.set(characterId, playerId);
+          ws.send(JSON.stringify({ type: 'character_confirmed', characterId }));
+          // Notify game screen
+          if (gameScreen && gameScreen.readyState === 1) {
+            gameScreen.send(JSON.stringify({ type: 'player_joined', playerId, characterId }));
+          }
+          // Broadcast updated taken list to all controllers
+          broadcastCharactersUpdate();
+          return;
+        }
+
+        // Forward other input to game screen
+        if (gameScreen && gameScreen.readyState === 1) {
           msg.playerId = playerId;
           gameScreen.send(JSON.stringify(msg));
-        } catch {}
-      }
+        }
+      } catch {}
     });
     ws.on('close', () => {
       controllers.delete(playerId);
+      // Release character
+      for (const [charId, pid] of takenCharacters) {
+        if (pid === playerId) {
+          takenCharacters.delete(charId);
+          break;
+        }
+      }
+      // Notify game screen
       if (gameScreen && gameScreen.readyState === 1) {
         gameScreen.send(JSON.stringify({ type: 'player_left', playerId }));
       }
+      // Broadcast updated taken list
+      broadcastCharactersUpdate();
     });
     return;
   }

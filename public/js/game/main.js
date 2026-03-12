@@ -5,9 +5,14 @@ import { WaveManager } from './waves.js';
 import { rollUpgrades, applyUpgrade, applyUpgradeToAll, revertUpgradeFromAll } from './upgrades.js';
 import { Renderer } from './renderer.js';
 import { GlobalEventManager, EVENTS } from './globalEvents.js';
+import { CHARACTERS } from './characters.js';
+import { preloadAvatars } from './sprites.js';
 import * as network from './network.js';
 import * as sound from './sound.js';
 import { GAME_CONFIG, saveConfig, resetConfig } from './config.js';
+
+// --- Preload avatars ---
+preloadAvatars(CHARACTERS);
 
 // --- State ---
 const canvas = document.getElementById('gameCanvas');
@@ -24,11 +29,7 @@ let gameTime = 0;
 let gameState = 'lobby'; // lobby | playing | gameover
 let teamXP = { xp: 0, level: 1, xpToNext: 15 };
 let votingState = null; // { options: [...], votes: Map<playerId, upgradeId> }
-let lobbyPlayers = new Map(); // id -> {id, color, name}
-
-// Player colors & names
-const PLAYER_COLORS = ['#ff4466', '#44bbff', '#44ff88', '#ffcc44', '#ff88ff', '#88ffff', '#ffaa44', '#aa88ff'];
-const PLAYER_NAMES = ['Junior Dev', 'The Intern', 'Staff Engineer', '10x Engineer', 'DevOps Guru', 'Script Kiddie', 'Legacy Code Owner', 'The Architect'];
+let lobbyPlayers = new Map(); // id -> {id, color, name, characterId, avatar}
 
 // --- Lobby ---
 const lobbyEl = document.getElementById('lobby');
@@ -148,9 +149,22 @@ function updateLobbyUI() {
   playersUl.innerHTML = '';
   for (const [id, info] of lobbyPlayers) {
     const li = document.createElement('li');
-    li.textContent = info.name;
     li.style.borderColor = info.color;
     li.style.color = info.color;
+    li.style.display = 'flex';
+    li.style.alignItems = 'center';
+    li.style.gap = '8px';
+    if (info.avatar) {
+      const img = document.createElement('img');
+      img.src = info.avatar;
+      img.style.width = '28px';
+      img.style.height = '28px';
+      img.style.objectFit = 'contain';
+      li.appendChild(img);
+    }
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = info.name;
+    li.appendChild(nameSpan);
     playersUl.appendChild(li);
   }
   startBtn.disabled = lobbyPlayers.size === 0;
@@ -167,10 +181,14 @@ network.connect((msg) => {
   switch (msg.type) {
     case 'player_joined': {
       const id = msg.playerId;
+      const charId = msg.characterId;
+      const char = CHARACTERS.find(c => c.id === charId);
       lobbyPlayers.set(id, {
         id,
-        color: PLAYER_COLORS[id % PLAYER_COLORS.length],
-        name: PLAYER_NAMES[id % PLAYER_NAMES.length],
+        characterId: charId,
+        color: char ? char.color : '#ff4466',
+        name: char ? char.name : 'Player',
+        avatar: char ? char.avatar : null,
       });
       if (gameState === 'lobby') updateLobbyUI();
       if (gameState === 'playing') {
@@ -235,7 +253,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === ' ' && gameState === 'lobby' && lobbyPlayers.size === 0) {
     // Debug: add keyboard player
     sound.unlockAudio();
-    lobbyPlayers.set(-1, { id: -1, color: PLAYER_COLORS[0], name: 'Debug Dev' });
+    lobbyPlayers.set(-1, { id: -1, characterId: 'stepan', color: '#ff8844', name: 'Debug Dev', avatar: '/avatars/stepan.png' });
     updateLobbyUI();
   }
   if (e.key === 'Enter' && gameState === 'lobby' && lobbyPlayers.size > 0) {
@@ -246,7 +264,14 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => keysDown.delete(e.key.toLowerCase()));
 
 function addPlayer(id) {
-  const p = new Player(id);
+  const info = lobbyPlayers.get(id);
+  const charInfo = info ? {
+    id: info.characterId,
+    color: info.color,
+    name: info.name,
+    avatar: info.avatar,
+  } : null;
+  const p = new Player(id, charInfo);
   // Spread players out
   const angle = (players.length / 8) * Math.PI * 2;
   p.x = Math.cos(angle) * 60;

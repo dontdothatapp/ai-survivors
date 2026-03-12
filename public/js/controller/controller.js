@@ -1,11 +1,26 @@
 // Controller — connection logic + WebSocket
 import { Joystick } from './joystick.js';
 
+const CHARACTERS = [
+  { id: 'eldar', name: 'Eldar', title: 'Junior Dev', avatar: '/avatars/eldar.png', color: '#ff4466' },
+  { id: 'emil', name: 'Emil', title: 'The Intern', avatar: '/avatars/emil.png', color: '#44bbff' },
+  { id: 'illia', name: 'Illia', title: 'Staff Engineer', avatar: '/avatars/illia.png', color: '#44ff88' },
+  { id: 'leonid', name: 'Leonid', title: '10x Engineer', avatar: '/avatars/leonid.png', color: '#ffcc44' },
+  { id: 'lev', name: 'Lev', title: 'DevOps Guru', avatar: '/avatars/lev.png', color: '#ff88ff' },
+  { id: 'levan', name: 'Levan', title: 'Script Kiddie', avatar: '/avatars/levan.png', color: '#88ffff' },
+  { id: 'nikita', name: 'Nikita', title: 'Legacy Code Owner', avatar: '/avatars/nikita.png', color: '#ffaa44' },
+  { id: 'ruslan', name: 'Ruslan', title: 'The Architect', avatar: '/avatars/ruslan.png', color: '#aa88ff' },
+  { id: 'stepan', name: 'Stepan', title: 'Full Stack Overlord', avatar: '/avatars/stepan.png', color: '#ff8844' },
+];
+
 const connectingEl = document.getElementById('connecting');
+const characterSelectEl = document.getElementById('characterSelect');
+const characterGridEl = document.getElementById('characterGrid');
 const controllerUI = document.getElementById('controllerUI');
 const upgradeUI = document.getElementById('upgradeUI');
 const deadUI = document.getElementById('deadUI');
 const playerNameEl = document.getElementById('playerName');
+const playerAvatarEl = document.getElementById('playerAvatar');
 const hpFillEl = document.getElementById('hpFill');
 const xpFillEl = document.getElementById('xpFill');
 const levelTextEl = document.getElementById('levelText');
@@ -18,6 +33,8 @@ let joystick = null;
 let sendInterval = null;
 let hasVoted = false;
 let isAlive = true;
+let selectedCharacter = null;
+let takenCharacters = [];
 
 // Screen wake lock
 async function requestWakeLock() {
@@ -39,7 +56,10 @@ function connect() {
   ws.onclose = () => {
     console.log('[controller] disconnected, reconnecting...');
     clearInterval(sendInterval);
+    joystick = null;
+    selectedCharacter = null;
     connectingEl.style.display = 'flex';
+    characterSelectEl.style.display = 'none';
     controllerUI.style.display = 'none';
     upgradeUI.style.display = 'none';
     deadUI.style.display = 'none';
@@ -58,8 +78,30 @@ function handleMessage(msg) {
   switch (msg.type) {
     case 'assigned':
       playerId = msg.playerId;
-      showController();
+      takenCharacters = msg.taken || [];
+      showCharacterSelect();
       requestWakeLock();
+      break;
+
+    case 'character_confirmed':
+      selectedCharacter = CHARACTERS.find(c => c.id === msg.characterId);
+      showController();
+      break;
+
+    case 'character_rejected':
+      // Character was taken between render and tap — update UI
+      if (!takenCharacters.includes(msg.characterId)) {
+        takenCharacters.push(msg.characterId);
+      }
+      renderCharacterGrid();
+      break;
+
+    case 'characters_update':
+      takenCharacters = msg.taken || [];
+      // If still on character select screen, re-render
+      if (characterSelectEl.style.display !== 'none') {
+        renderCharacterGrid();
+      }
       break;
 
     case 'state':
@@ -96,11 +138,51 @@ function handleMessage(msg) {
   }
 }
 
+function showCharacterSelect() {
+  connectingEl.style.display = 'none';
+  characterSelectEl.style.display = 'flex';
+  controllerUI.style.display = 'none';
+  upgradeUI.style.display = 'none';
+  deadUI.style.display = 'none';
+  renderCharacterGrid();
+}
+
+function renderCharacterGrid() {
+  characterGridEl.innerHTML = '';
+  for (const char of CHARACTERS) {
+    const taken = takenCharacters.includes(char.id);
+    const card = document.createElement('button');
+    card.className = 'char-card' + (taken ? ' taken' : '');
+    card.disabled = taken;
+    card.innerHTML = `
+      <img src="${char.avatar}" alt="${char.name}" />
+      <span class="char-name" style="color:${char.color}">${char.name}</span>
+      <span class="char-title">${char.title}</span>
+    `;
+    if (!taken) {
+      card.addEventListener('click', () => {
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'character_select', characterId: char.id }));
+        }
+      });
+    }
+    characterGridEl.appendChild(card);
+  }
+}
+
 function showController() {
   connectingEl.style.display = 'none';
+  characterSelectEl.style.display = 'none';
   controllerUI.style.display = 'flex';
   upgradeUI.style.display = 'none';
   deadUI.style.display = 'none';
+
+  if (selectedCharacter) {
+    playerNameEl.textContent = selectedCharacter.name;
+    playerNameEl.style.color = selectedCharacter.color;
+    playerAvatarEl.src = selectedCharacter.avatar;
+    playerAvatarEl.style.display = 'block';
+  }
 
   if (!joystick) {
     const joyCanvas = document.getElementById('joystickCanvas');
@@ -122,8 +204,13 @@ function showController() {
 }
 
 function updatePlayerInfo(player, teamXP) {
-  playerNameEl.textContent = player.name;
-  playerNameEl.style.color = player.color;
+  if (selectedCharacter) {
+    playerNameEl.textContent = selectedCharacter.name;
+    playerNameEl.style.color = selectedCharacter.color;
+  } else {
+    playerNameEl.textContent = player.name;
+    playerNameEl.style.color = player.color;
+  }
   hpFillEl.style.width = `${(player.hp / player.maxHp) * 100}%`;
   if (teamXP) {
     xpFillEl.style.width = `${(teamXP.xp / teamXP.xpToNext) * 100}%`;

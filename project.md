@@ -17,10 +17,12 @@ A multiplayer Vampire Survivors parody. Up to 8 players share one screen (laptop
 
 ```
 AI_survivors/
-├── server.js              # HTTP static server + WebSocket relay (~120 lines)
+├── server.js              # HTTP static server + WebSocket relay + character selection
+├── Avatars/               # Original hand-drawn character PNGs (~1.5MB each)
 └── public/
     ├── game.html           # Game screen (laptop/TV)
     ├── controller.html     # Phone controller
+    ├── avatars/            # Optimized character PNGs (~30-40KB each, 256px)
     ├── css/
     │   ├── game.css
     │   └── controller.css
@@ -29,26 +31,29 @@ AI_survivors/
         │   ├── main.js         # Game loop, orchestration, lobby/game-over flow
         │   ├── renderer.js     # All canvas drawing, camera, screen shake, floating text
         │   ├── entities.js     # Player, Enemy, Projectile, XPGem classes
+        │   ├── characters.js   # Character definitions (id, name, title, avatar, color)
         │   ├── waves.js        # WaveManager — enemy spawning & progression
         │   ├── weapons.js      # WEAPON_DEFS + updateWeapons()
         │   ├── upgrades.js     # Upgrade pool + rollUpgrades() / applyUpgrade()
         │   ├── globalEvents.js # GlobalEventManager — mid-sprint random chaos events
         │   ├── config.js       # GAME_CONFIG — persistent admin settings (localStorage)
-        │   ├── sprites.js      # Programmatic pixel art (offscreen canvas cache)
+        │   ├── sprites.js      # Programmatic pixel art + avatar image loading/caching
         │   ├── sound.js        # Web Audio API oscillator-based retro beeps
         │   └── network.js      # Game-screen WebSocket client + broadcast helpers
         └── controller/
-            ├── controller.js  # Phone WS connection, state display, upgrade UI
+            ├── controller.js  # Phone WS connection, character select, state display, upgrade UI
             └── joystick.js    # Touch/mouse joystick (~80 lines)
 ```
 
 ### Server (`server.js`)
-- Dumb relay — no game state server-side; forwards allowed message types (`state`, `upgrade_prompt`, `upgrade_resolved`, `game_start`, `game_over`) to controllers
+- Manages character selection state server-side (`takenCharacters` Map); forwards other message types (`state`, `upgrade_prompt`, `upgrade_resolved`, `game_start`, `game_over`) to controllers
 - HTTP: serves `public/` as static files with MIME types
 - WebSocket routes:
   - `/game` → game screen (one connection)
-  - `/controller` → phone controllers (up to 8)
-- Assigns player IDs (0–7), forwards input to game screen, state back to phones
+  - `/controller` → phone controllers (up to 9)
+- Assigns player IDs, handles `character_select` / `character_confirmed` / `character_rejected` flow before forwarding `player_joined` to game screen
+- Broadcasts `characters_update` (taken character list) to all controllers when selections change
+- Releases character on controller disconnect
 - Detects local IP and prints game + controller URLs on start
 
 ### Game Screen
@@ -58,9 +63,10 @@ AI_survivors/
 - Keyboard fallback: press **Space** to add debug player, **WASD/arrows** to move, **Enter** to start
 
 ### Phone Controller
-- Connects to `/controller`, receives assigned player ID
+- Connects to `/controller`, receives assigned player ID + list of taken characters
+- **Character selection screen**: "CHOOSE YOUR FIGHTER" — 3×3 grid of character avatars; taken characters are grayed out; tapping sends `character_select`; on confirmation transitions to joystick
 - Touch joystick sends `{type:"input", dx, dy}` at ~30 Hz
-- Displays HP bar, team XP bar, team level
+- HUD shows selected character avatar + name, HP bar, team XP bar, team level
 - On level-up: all controllers show 3 upgrade vote buttons simultaneously; after voting shows "Waiting for others..."
 - Screen wake lock via `navigator.wakeLock`
 
@@ -70,14 +76,20 @@ AI_survivors/
 
 | Direction | Message | Notes |
 |-----------|---------|-------|
+| Server → Phone | `{type:"assigned", playerId, taken:[...]}` | on connect, includes taken character IDs |
+| Phone → Server | `{type:"character_select", characterId}` | pick a character |
+| Server → Phone | `{type:"character_confirmed", characterId}` | selection accepted |
+| Server → Phone | `{type:"character_rejected", characterId}` | character already taken |
+| Server → All phones | `{type:"characters_update", taken:[...]}` | broadcast when selections change |
+| Server → Game | `{type:"player_joined", playerId, characterId}` | after character selected |
+| Server → Game | `{type:"player_left", playerId}` | on disconnect |
 | Phone → Game | `{type:"input", playerId, dx, dy}` | 30 Hz |
-| Game → All phones | `{type:"state", teamXP:{xp,xpToNext,level}, players:[...]}` | 5 Hz |
+| Game → All phones | `{type:"state", teamXP:{…}, players:[{…, characterId}]}` | 5 Hz |
 | Game → All phones | `{type:"upgrade_prompt", options}` | on team level-up |
 | Phone → Game | `{type:"upgrade_pick", upgradeId}` | vote for upgrade |
 | Game → All phones | `{type:"upgrade_resolved"}` | dismiss vote UI |
 | Phone → Game | `{type:"request_start"}` | start from phone |
 | Game → All phones | `{type:"game_start"}` / `{type:"game_over", victory, stats}` | flow events |
-| Server → Game | `{type:"player_joined/left", playerId}` | connection events |
 
 ---
 
@@ -108,7 +120,7 @@ Each frame:
 ## Entities
 
 ### Player
-- `id`, `color`, `name`, `x/y`, `dx/dy` (joystick input), `facingX/Y`
+- `id`, `characterId`, `color`, `name`, `avatar`, `x/y`, `dx/dy` (joystick input), `facingX/Y`
 - Stats: `speed=150`, `radius=14`, `hp/maxHp=100`, `pickupRadius=50`
 - Multipliers: `damageMultiplier`, `fireRateMultiplier`, `aoeMultiplier`
 - `bonusPierce` — added to all projectile pierce values
@@ -225,7 +237,8 @@ XP is shared in a single **team pool** (`teamXP` in `main.js`). When the team le
 - Camera: smooth lerp toward player centroid
 - Screen shake: intensity + timer, applied as random translate offset
 - Floating texts: world-space, rise + fade over ~0.8s
-- Sprites: programmatic pixel art cached to offscreen canvases (`sprites.js`)
+- Sprites: programmatic pixel art cached to offscreen canvases (`sprites.js`); player avatars loaded from `/avatars/` PNGs (preloaded on game screen load, fallback to pixel sprite if not loaded)
+- In-game player display: HP bar above character, character name below
 - HUD: wave/time top-left, engineer count top-right, mini HP bars per player, team XP bar top-center, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
 - Voting overlay: dark overlay + "LEVEL UP!" title + 3 upgrade cards (name + description) + colored vote dots below each card + vote progress counter
 - Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
@@ -256,7 +269,7 @@ The `GlobalEventManager` tracks `upgradeHistory[]` (populated via `recordUpgrade
 - **Wave messages**: "Sprint 5 begins... The backlog grows."
 - **Damage text**: `-42 LOC deleted`
 - **Death messages**: "Mass-laid-off", "PR rejected by the universe", "Segfault in production"
-- **Player names**: "Junior Dev", "The Intern", "Staff Engineer", "10x Engineer", etc.
+- **Characters**: 9 named characters (Eldar, Emil, Illia, Leonid, Lev, Levan, Nikita, Ruslan, Stepan) each with a hand-drawn avatar and a fun title ("Junior Dev", "The Intern", "Full Stack Overlord", etc.)
 - **Victory**: "You have been... not replaced. For now."
 - **Game over**: "Your job is safe... until the next reorg."
 - **Upgrade names**: "Learn a new framework", "Work-life balance", "Agile methodology"

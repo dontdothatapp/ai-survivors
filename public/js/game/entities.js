@@ -1,8 +1,6 @@
 // Entity classes — Player, Enemy, Projectile, XPGem
 import { GAME_CONFIG } from './config.js';
 
-const PLAYER_COLORS = ['#ff4466', '#44bbff', '#44ff88', '#ffcc44', '#ff88ff', '#88ffff', '#ffaa44', '#aa88ff'];
-const PLAYER_NAMES = ['Junior Dev', 'The Intern', 'Staff Engineer', '10x Engineer', 'DevOps Guru', 'Script Kiddie', 'Legacy Code Owner', 'The Architect'];
 const DEATH_MESSAGES = [
   'Mass-laid-off',
   'PR rejected by the universe',
@@ -15,7 +13,7 @@ const DEATH_MESSAGES = [
 ];
 
 export class Player {
-  constructor(id) {
+  constructor(id, characterInfo) {
     this.id = id;
     this.x = 0;
     this.y = 0;
@@ -30,8 +28,10 @@ export class Player {
     this.hp = 100;
     this.maxHp = 100;
     this.alive = true;
-    this.color = PLAYER_COLORS[id % PLAYER_COLORS.length];
-    this.name = PLAYER_NAMES[id % PLAYER_NAMES.length];
+    this.characterId = characterInfo ? characterInfo.id : null;
+    this.color = characterInfo ? characterInfo.color : '#ff4466';
+    this.name = characterInfo ? characterInfo.name : 'Player';
+    this.avatar = characterInfo ? characterInfo.avatar : null;
     this.level = 1;
     this.weapons = [{ type: 'code_review', cooldown: 0 }];
     this.damageMultiplier = 1;
@@ -562,5 +562,3 @@ export function upgradeEnemyType(enemy) {
       break;
   }
 }
-
-export { PLAYER_COLORS, PLAYER_NAMES };

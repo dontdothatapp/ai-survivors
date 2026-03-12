@@ -1,5 +1,5 @@
 // All canvas drawing
-import { getPlayerSprite, getEnemySprite, getProjectileSprite, getXPGemSprite } from './sprites.js';
+import { getPlayerSprite, getEnemySprite, getProjectileSprite, getXPGemSprite, getAvatarImage } from './sprites.js';
 
 export class Renderer {
   constructor(canvas) {
@@ -196,14 +196,19 @@ export class Renderer {
 
   _drawPlayer(player) {
     const { ctx } = this;
-    const { x, y, color, name, hp, maxHp, level, invincibleTimer, radius } = player;
+    const { x, y, color, name, hp, maxHp, level, invincibleTimer, radius, characterId } = player;
 
     // Invincibility flash
     if (invincibleTimer > 0 && Math.floor(invincibleTimer * 20) % 2) return;
 
-    // Sprite
-    const sprite = getPlayerSprite(color);
-    ctx.drawImage(sprite, x - 16, y - 16, 32, 32);
+    // Try avatar image first, fall back to pixel sprite
+    const avatarImg = characterId ? getAvatarImage(characterId) : null;
+    if (avatarImg) {
+      ctx.drawImage(avatarImg, x - 16, y - 16, 32, 32);
+    } else {
+      const sprite = getPlayerSprite(color);
+      ctx.drawImage(sprite, x - 16, y - 16, 32, 32);
+    }
 
     // Rubber duck orbit
     if (player.weapons.some(w => w.type === 'rubber_duck')) {
@@ -224,25 +229,20 @@ export class Renderer {
       ctx.stroke();
     }
 
-    // Name
-    ctx.fillStyle = color;
-    ctx.font = '11px "Courier New"';
-    ctx.textAlign = 'center';
-    ctx.fillText(name, x, y - 22);
-
     // HP bar
     const barW = 30;
     const barH = 4;
-    const barY = y - 28;
+    const barY = y - 22;
     ctx.fillStyle = '#333';
     ctx.fillRect(x - barW / 2, barY, barW, barH);
     ctx.fillStyle = hp / maxHp > 0.3 ? '#ff4444' : '#ff0000';
     ctx.fillRect(x - barW / 2, barY, barW * (hp / maxHp), barH);
 
-    // Level badge
-    ctx.fillStyle = '#ffcc00';
-    ctx.font = 'bold 9px "Courier New"';
-    ctx.fillText(`Lv${level}`, x, y + 26);
+    // Name below character
+    ctx.fillStyle = color;
+    ctx.font = '11px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, x, y + 26);
   }
 
   _drawEnemy(enemy) {

@@ -38,6 +38,7 @@ export function broadcastState(players, teamXP) {
       alive: p.alive,
       color: p.color,
       name: p.name,
+      characterId: p.characterId,
     })),
   });
 }
