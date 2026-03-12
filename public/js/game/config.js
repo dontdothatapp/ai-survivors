@@ -10,7 +10,7 @@ const DEFAULTS = {
     ceo: 600,
     boss: 2000,
   },
-  killsPerSprint: 0,   // 0 = disabled (time-based only)
+  sprintDuration: 45,  // seconds per sprint
   xpMultiplier: 1.5,   // each level-up requires this × more XP than the previous
 };
 
@@ -23,7 +23,7 @@ function loadConfig() {
       const saved = JSON.parse(raw);
       return {
         enemyHp: { ...DEFAULTS.enemyHp, ...(saved.enemyHp || {}) },
-        killsPerSprint: saved.killsPerSprint ?? DEFAULTS.killsPerSprint,
+        sprintDuration: saved.sprintDuration ?? DEFAULTS.sprintDuration,
         xpMultiplier: saved.xpMultiplier ?? DEFAULTS.xpMultiplier,
       };
     }
@@ -40,7 +40,7 @@ export function saveConfig() {
 export function resetConfig() {
   const def = JSON.parse(JSON.stringify(DEFAULTS));
   Object.assign(GAME_CONFIG.enemyHp, def.enemyHp);
-  GAME_CONFIG.killsPerSprint = def.killsPerSprint;
+  GAME_CONFIG.sprintDuration = def.sprintDuration;
   GAME_CONFIG.xpMultiplier = def.xpMultiplier;
   localStorage.removeItem(STORAGE_KEY);
 }

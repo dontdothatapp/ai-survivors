@@ -66,7 +66,7 @@ function openAdminPanel() {
     const el = document.getElementById(`admin-hp-${key}`);
     if (el) el.value = GAME_CONFIG.enemyHp[key];
   }
-  document.getElementById('admin-kills-per-sprint').value = GAME_CONFIG.killsPerSprint;
+  document.getElementById('admin-sprint-duration').value = GAME_CONFIG.sprintDuration;
   document.getElementById('admin-xp-multiplier').value = GAME_CONFIG.xpMultiplier;
 
   // Populate global events
@@ -98,9 +98,9 @@ function saveAdminPanel() {
       if (!isNaN(val) && val > 0) GAME_CONFIG.enemyHp[key] = val;
     }
   }
-  const killsEl = document.getElementById('admin-kills-per-sprint');
-  const killsVal = parseInt(killsEl.value, 10);
-  if (!isNaN(killsVal) && killsVal >= 0) GAME_CONFIG.killsPerSprint = killsVal;
+  const durationEl = document.getElementById('admin-sprint-duration');
+  const durationVal = parseInt(durationEl.value, 10);
+  if (!isNaN(durationVal) && durationVal >= 10) GAME_CONFIG.sprintDuration = durationVal;
 
   const xpEl = document.getElementById('admin-xp-multiplier');
   const xpVal = parseFloat(xpEl.value);
@@ -526,9 +526,9 @@ function gameLoop(timestamp) {
 
   gameTime += dt;
 
-  // Trigger global event at mid-sprint (halfway through WAVE_DURATION = 45s)
+  // Trigger global event at mid-sprint
   if (waveManager.currentWave > 0 && waveManager.currentWave < 7 &&
-      !midSprintEventFired && waveManager.waveTimer <= 22.5) {
+      !midSprintEventFired && waveManager.waveTimer <= GAME_CONFIG.sprintDuration / 2) {
     midSprintEventFired = true;
     globalEventManager.trigger(waveManager.currentWave);
     sound.playGlobalEvent();
@@ -848,9 +848,6 @@ function onEnemyKilled(enemy, killer) {
   sound.playKill();
   renderer.addFloatingText(enemy.x, enemy.y - 10, `-${enemy.maxHp} LOC deleted`, '#ffcc44');
   renderer.addScreenShake(3, 0.1);
-  waveManager.totalKills++;
-  waveManager.sprintKills++;
-
   if (killer) killer.kills++;
 
   // Drop XP

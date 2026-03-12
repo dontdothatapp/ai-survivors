@@ -2,7 +2,6 @@
 import { Enemy } from './entities.js';
 import { GAME_CONFIG } from './config.js';
 
-const WAVE_DURATION = 45; // seconds per sprint
 const MAX_ENEMIES = 40;
 
 const SPRINT_NEW_ENEMY = {
@@ -33,8 +32,6 @@ export class WaveManager {
     this.active = false;
     this.bossSpawned = false;
     this.bossDefeated = false;
-    this.totalKills = 0;
-    this.sprintKills = 0;
     this.waveMessage = '';
     this.waveMessageTimer = 0;
     this.sprintPauseActive = false;
@@ -64,12 +61,6 @@ export class WaveManager {
     this.waveTimer -= dt;
     if (this.waveMessageTimer > 0) this.waveMessageTimer -= dt;
 
-    // Kills-based sprint advancement
-    const killThreshold = GAME_CONFIG.killsPerSprint;
-    if (killThreshold > 0 && this.sprintKills >= killThreshold && this.currentWave > 0 && this.currentWave < 7) {
-      this.waveTimer = 0;
-    }
-
     // Check boss defeated (boss may have been filtered from array already)
     if (this.bossSpawned && !this.bossDefeated) {
       const boss = enemies.find(e => e.type === 'boss');
@@ -80,9 +71,8 @@ export class WaveManager {
 
     // Next wave
     if (this.waveTimer <= 0 && this.currentWave < 7) {
-      this.sprintKills = 0;
       this.currentWave++;
-      this.waveTimer = WAVE_DURATION;
+      this.waveTimer = GAME_CONFIG.sprintDuration;
       this.spawnTimer = 0;
       this.waveMessage = WAVE_MESSAGES[this.currentWave - 1] || `Sprint ${this.currentWave}...`;
       this.waveMessageTimer = 3;
