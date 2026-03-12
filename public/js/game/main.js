@@ -314,6 +314,7 @@ function showGameOver(victory) {
   gameState = 'gameover';
   gameOverEl.style.display = 'flex';
   hudEl.style.display = 'none';
+  sound.stopBossMusic();
 
   const titleEl = document.getElementById('gameOverTitle');
   const textEl = document.getElementById('gameOverText');
@@ -401,8 +402,14 @@ function gameLoop(timestamp) {
   waveManager.update(dt, enemies, players, 0, 0);
 
   // When sprint pause just ended, spawn the featured enemy near players and reset mid-sprint flag
-  if (wasSprintPaused && !waveManager.sprintPauseActive && waveManager.newEnemy) {
+  if (wasSprintPaused && !waveManager.sprintPauseActive) {
     midSprintEventFired = false;
+    // Start boss music on final sprint
+    if (waveManager.currentWave >= 7) {
+      sound.playBossMusic();
+    }
+  }
+  if (wasSprintPaused && !waveManager.sprintPauseActive && waveManager.newEnemy) {
     let cx = 0, cy = 0, count = 0;
     for (const p of players) {
       if (p.alive) { cx += p.x; cy += p.y; count++; }

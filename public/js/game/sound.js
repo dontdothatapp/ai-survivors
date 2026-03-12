@@ -128,6 +128,25 @@ export function stopAlekseiMusic() {
   }
 }
 
+// Final boss music
+let bossAudio = null;
+
+export function playBossMusic() {
+  stopBossMusic();
+  bossAudio = new Audio('/sounds/ai_final_boss.mp3');
+  bossAudio.volume = 0.4;
+  bossAudio.loop = true;
+  bossAudio.play().catch(() => {});
+}
+
+export function stopBossMusic() {
+  if (bossAudio) {
+    bossAudio.pause();
+    bossAudio.currentTime = 0;
+    bossAudio = null;
+  }
+}
+
 // Call on first user interaction to unlock audio
 export function unlockAudio() {
   getCtx();
