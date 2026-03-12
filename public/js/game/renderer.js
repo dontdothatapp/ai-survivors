@@ -210,10 +210,7 @@ export class Renderer {
 
   _drawPlayer(player) {
     const { ctx } = this;
-    const { x, y, color, name, hp, maxHp, level, invincibleTimer, radius, characterId } = player;
-
-    // Invincibility flash
-    if (invincibleTimer > 0 && Math.floor(invincibleTimer * 20) % 2) return;
+    const { x, y, color, name, hp, maxHp, level, radius, characterId, damageFlash } = player;
 
     // Try avatar image first, fall back to pixel sprite
     const avatarImg = characterId ? getAvatarImage(characterId) : null;
@@ -222,6 +219,15 @@ export class Renderer {
     } else {
       const sprite = getPlayerSprite(color);
       ctx.drawImage(sprite, x - 16, y - 16, 32, 32);
+    }
+
+    // Damage flash — red tint overlay
+    if (damageFlash > 0) {
+      const alpha = Math.min(damageFlash / 0.15, 1) * 0.5;
+      ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 16, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     // Orbits weapon visual

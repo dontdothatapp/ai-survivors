@@ -72,13 +72,13 @@ export const WEAPON_DEFS = {
     },
     isPassive: true,
     orbitRadius: 50,
-    orbitDamage: 8,
+    orbitDamage: 14,
   },
 
   minigun: {
     name: 'Minigun',
     cooldown: 0.2,
-    damage: 2,
+    damage: 2.5,
     speed: 400,
     pierce: 0,
     progression: ['damage', 'reduce_spread'],

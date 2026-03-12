@@ -909,13 +909,17 @@ function executeGlobalEvent(event) {
 
   switch (event.id) {
     case 'reorg': {
-      // Kill one random alive player
-      const victim = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-      victim.alive = false;
-      victim.hp = 0;
-      sound.playDeath();
-      renderer.addFloatingText(victim.x, victim.y - 20, 'LAID OFF', '#ff4444', 2);
-      renderer.addScreenShake(5, 0.3);
+      // Kill 25% of alive players (if <=2 alive, nobody dies)
+      const killCount = alivePlayers.length <= 2 ? 0 : Math.max(1, Math.floor(alivePlayers.length * 0.25));
+      const shuffled = [...alivePlayers].sort(() => Math.random() - 0.5);
+      for (let i = 0; i < killCount; i++) {
+        const victim = shuffled[i];
+        victim.alive = false;
+        victim.hp = 0;
+        sound.playDeath();
+        renderer.addFloatingText(victim.x, victim.y - 20, 'LAID OFF', '#ff4444', 2);
+      }
+      if (killCount > 0) renderer.addScreenShake(5, 0.3);
       break;
     }
     case 'new_teams': {

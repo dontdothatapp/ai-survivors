@@ -514,20 +514,64 @@ export class Ally {
     this.radius = 40; // boss size
     this.damage = 5;
     this.alive = true;
-    // Compute straight-line velocity
+    this.speed = 150;
+    this.hitCooldowns = new Map(); // enemy -> timer
+
+    // Build zigzag waypoints between start and end
     const dx = endX - startX;
     const dy = endY - startY;
     const len = Math.hypot(dx, dy) || 1;
-    const speed = 150;
-    this.vx = (dx / len) * speed;
-    this.vy = (dy / len) * speed;
-    this.hitCooldowns = new Map(); // enemy -> timer
+    const fwdX = dx / len;
+    const fwdY = dy / len;
+    const perpX = -fwdY;
+    const perpY = fwdX;
+    const segments = 6;
+    const zigAmplitude = 120;
+    this.waypoints = [];
+    for (let i = 1; i <= segments; i++) {
+      const t = i / segments;
+      const mx = startX + dx * t;
+      const my = startY + dy * t;
+      if (i < segments) {
+        const side = (i % 2 === 1) ? 1 : -1;
+        this.waypoints.push({ x: mx + perpX * zigAmplitude * side, y: my + perpY * zigAmplitude * side });
+      } else {
+        this.waypoints.push({ x: mx, y: my });
+      }
+    }
+    this.waypointIndex = 0;
+    // Store last movement direction for after final waypoint
+    this.lastDx = dx / len;
+    this.lastDy = dy / len;
   }
 
   update(dt, enemies) {
     if (!this.alive) return [];
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
+
+    // Move toward current waypoint (zigzag path)
+    if (this.waypointIndex < this.waypoints.length) {
+      const wp = this.waypoints[this.waypointIndex];
+      const dx = wp.x - this.x;
+      const dy = wp.y - this.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 8) {
+        this.lastDx = dx / (dist || 1);
+        this.lastDy = dy / (dist || 1);
+        this.waypointIndex++;
+      }
+    }
+    if (this.waypointIndex < this.waypoints.length) {
+      const wp = this.waypoints[this.waypointIndex];
+      const dx = wp.x - this.x;
+      const dy = wp.y - this.y;
+      const len = Math.hypot(dx, dy) || 1;
+      this.x += (dx / len) * this.speed * dt;
+      this.y += (dy / len) * this.speed * dt;
+    } else {
+      // Past final waypoint — continue in last direction
+      this.x += this.lastDx * this.speed * dt;
+      this.y += this.lastDy * this.speed * dt;
+    }
 
     // Decrement cooldowns
     for (const [enemy, timer] of this.hitCooldowns) {

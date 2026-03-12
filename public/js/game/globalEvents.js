@@ -1,11 +1,11 @@
 // Global events — predefined per sprint
 const EVENTS = [
-  { id: 'new_teams', name: 'NEW TEAMS', desc: '20% of enemies just got promoted' },
+  { id: 'new_teams', name: 'RANDOM PROMOTIONS', desc: '20% of enemies just got promoted' },
   { id: 'we_need_ai', name: 'WE NEED AI', desc: '10 AI-powered enemies have entered the chat' },
   { id: 'aleksei', name: 'ALEKSEI', desc: 'A friendly face has appeared to help!' },
   { id: 'micromanager', name: 'MICROMANAGER', desc: '2 random upgrades have been downgraded' },
   { id: 'feedback', name: 'FEEDBACK', desc: '10 jira tickets are flying your way!' },
-  { id: 'reorg', name: 'REORG', desc: 'One random engineer has been let go' },
+  { id: 'reorg', name: 'REORG', desc: '25% of engineers have been let go' },
 ];
 
 const SPRINT_EVENT_MAP = {

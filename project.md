@@ -163,7 +163,7 @@ Each frame:
 ### Ally
 - Spawned by the Aleksei global event (sprint 3)
 - `characterId='aleksei'`, `radius=40` (boss size), `damage=5`
-- Moves in a straight line across the screen through the player area
+- Moves in a zigzag trajectory across the screen through the player area (6 waypoints alternating ±120px perpendicular to travel direction)
 - Damages enemies on contact with 0.5s cooldown per enemy (via `hitCooldowns` Map)
 - `update(dt, enemies)` returns list of killed enemies
 - Rendered at 64x64 with green glow ring; Aleksei avatar image preloaded via `preloadAllyAvatar()`
@@ -183,8 +183,8 @@ All defined in `WEAPON_DEFS` in `weapons.js`. Each has `cooldown`, `damage`, `sp
 |--------|----------|--------|----------|-------------|
 | `directional_shot` | 0.7s | 12 | Fires in facing direction, pierces 1 | fire_rate, damage, pierce, multishot |
 | `four_projectiles` | 1.2s | 10 | 4 cardinal direction projectiles | fire_rate, damage, pierce |
-| `orbits` | passive | 8 | Orbits player at r=50, contact damage (0.5s cooldown per enemy) | rotation_speed, damage |
-| `minigun` | 0.2s | 2 | Fast forward volley with random spread (DPS ~10) | damage, reduce_spread |
+| `orbits` | passive | 14 | Orbits player at r=50, contact damage (0.5s cooldown per enemy) | rotation_speed, damage |
+| `minigun` | 0.2s | 2.5 | Fast forward volley with random spread (DPS ~12.5) | damage, reduce_spread |
 | `lightning` | 1.5s | 18 | AOE strikes near player | extra_strike, reduce_cooldown |
 | `laser_eyes` | passive | 5/tick | Continuous beam from player in facing direction; cycles 1s on / 1s off; damages enemies touching the beam (beamLength=150, beamHitInterval=0.3s) | laser_length, damage |
 | `octopus_hands` | 1.0s | 8 | Fires 8 short-lived tentacles in random directions (speed=150, lifetime=0.3s); rendered as wavy purple lines from player to projectile tip | fire_rate, damage |
@@ -277,12 +277,12 @@ Predefined events that fire once per sprint at the midpoint (22.5s into each 45s
 
 | Sprint | ID | Name | Description | Effect |
 |--------|----|------|-------------|--------|
-| 1 | `new_teams` | NEW TEAMS | 20% of enemies just got promoted | Promotes 20% of alive enemies up the hierarchy (jira→bug→feature→pm→em→vp→ceo) |
+| 1 | `new_teams` | RANDOM PROMOTIONS | 20% of enemies just got promoted | Promotes 20% of alive enemies up the hierarchy (jira→bug→feature→pm→em→vp→ceo) |
 | 2 | `we_need_ai` | WE NEED AI | 10 AI-powered enemies have entered the chat | Spawns 10 `ai_mini` enemies around players (bypasses 40-enemy cap) |
 | 3 | `aleksei` | ALEKSEI | A friendly face has appeared to help! | Spawns an `Ally` that crosses the screen dealing 5 damage to enemies on contact; plays Aleksei.mp3 music |
 | 4 | `micromanager` | MICROMANAGER | 2 random upgrades have been downgraded | Reverts up to 2 previously applied upgrades (excluding `new_weapon`) |
 | 5 | `feedback` | FEEDBACK | 10 jira tickets are flying your way! | Spawns 10 jira enemies flying in straight lines toward players (`isFeedback` flag, bypass cap, skip normal AI, despawn at 1500px) |
-| 6 | `reorg` | REORG | One random engineer has been let go | Kills one random alive player |
+| 6 | `reorg` | REORG | 25% of engineers have been let go | Kills 25% of alive players (rounded down); if ≤2 alive, nobody dies |
 
 The `GlobalEventManager` tracks `upgradeHistory[]` (populated via `recordUpgrade()` on each vote resolution) so the Micromanager event knows which upgrades to revert.
 
