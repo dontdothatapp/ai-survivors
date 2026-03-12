@@ -145,7 +145,7 @@ Each frame:
 | `boss` | 2000+ | 20 | 3 phases (see below) |
 
 ### Boss — THE AI (sprint 7)
-- `ai_final_boss.mp3` loops for the duration of the boss fight (stops on game over)
+- `ai_final_boss.mp3` loops for the duration of the boss fight and continues through the end credits on victory
 - **Phase 1** (>66% HP): spawns enemy clusters every 4s
 - **Phase 2** (33–66%): hallucination — spawns 4 flaky enemies every 1.5s
 - **Phase 3** (<33%): spawns bugs every 2s, speed bumps to 35
@@ -282,7 +282,7 @@ The `GlobalEventManager` tracks `upgradeHistory[]` (populated via `recordUpgrade
 - **Damage text**: `-42 LOC deleted`
 - **Death messages**: "Mass-laid-off", "PR rejected by the universe", "Segfault in production"
 - **Characters**: 9 named characters (Eldar, Emil, Illia, Leonid, Lev, Levan, Nikita, Ruslan, Stepan) each with a hand-drawn avatar and a fun title ("Junior Dev", "The Intern", "Full Stack Overlord", etc.)
-- **Victory**: "You have been... not replaced. For now."
+- **Victory**: End credits roll (movie-style bottom-to-top scroll) over boss music, then shows "You have been... not replaced. For now." with stats
 - **Game over**: "Your job is safe... until the next reorg."
 - **Upgrade names**: "Learn a new framework", "Work-life balance", "Agile methodology"
 
@@ -302,6 +302,21 @@ Accessible via the **⚙ ADMIN** button on the lobby screen. Settings persist in
 | **Global Events** | Editable name and description for each of the 6 global events. Changes apply immediately to the in-memory `EVENTS` array. | See Global Events table |
 
 `RESET DEFAULTS` restores all values and clears localStorage.
+
+---
+
+## End Credits
+
+On victory (boss defeated), a cinematic scrolling credits sequence plays while the boss battle music continues looping. The credits scroll bottom-to-top over ~50 seconds and include:
+
+1. **Title** — "AI SURVIVORS" with subtitle
+2. **Cast** — All characters (9 players + Aleksei) listed as playing themselves
+3. **Crew** — Game Director, Lead Programmer, Pixel Artist, Sound Designer, Composer, Level Designer, QA Tester, Writer, Producer (all AI), and Conductor (Stepan)
+4. **Special Thanks** — Leonid
+
+A **SKIP** button in the bottom-right allows skipping to the victory stats screen. After credits end (or skip), boss music stops and the normal victory game-over screen appears with stats and PLAY AGAIN button.
+
+Implemented in: `game.html` (credits DOM), `game.css` (scrolling animation + styles), `main.js` (`showCredits()` function).
 
 ---
 

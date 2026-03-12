@@ -336,3 +336,161 @@ body {
   white-space: pre;
   margin: 16px 0;
 }
+
+/* End Credits */
+#credits {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #000;
+  z-index: 25;
+  overflow: hidden;
+}
+
+#creditsScroll {
+  position: absolute;
+  left: 0; right: 0;
+  text-align: center;
+  animation: creditsRoll 50s linear forwards;
+}
+
+@keyframes creditsRoll {
+  0%   { transform: translateY(100vh); }
+  100% { transform: translateY(-100%); }
+}
+
+.credits-spacer {
+  height: 40vh;
+}
+
+.credits-title {
+  font-size: 52px;
+  color: #00ff88;
+  text-shadow: 0 0 30px #00ff8866;
+  margin-bottom: 8px;
+}
+
+.credits-subtitle {
+  color: #888;
+  font-size: 16px;
+  margin-bottom: 60px;
+}
+
+.credits-section {
+  margin-bottom: 60px;
+}
+
+.credits-section h2 {
+  font-size: 20px;
+  color: #ffcc00;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  margin-bottom: 28px;
+}
+
+/* Cast — two-column layout */
+.credits-cast {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  width: 360px;
+}
+
+.cast-row {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+}
+
+.cast-char {
+  color: #e0e0e0;
+  width: 140px;
+  text-align: right;
+}
+
+.cast-dots {
+  flex: 1;
+  border-bottom: 1px dotted #333;
+  margin: 0 12px;
+  min-width: 30px;
+  height: 0;
+  position: relative;
+  top: -3px;
+}
+
+.cast-actor {
+  color: #aaa;
+  width: 140px;
+  text-align: left;
+}
+
+/* Crew roles */
+.credits-roles {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.role-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.role-title {
+  font-size: 13px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.role-name {
+  font-size: 20px;
+  color: #e0e0e0;
+}
+
+.role-row.conductor .role-name {
+  color: #e0e0e0;
+  font-size: 20px;
+}
+
+/* Special thanks */
+.credits-thanks {
+  margin-top: 80px;
+}
+
+.thanks-name {
+  font-size: 36px;
+  color: #ffcc44;
+  text-shadow: 0 0 20px #ffcc4466;
+  margin-bottom: 8px;
+}
+
+.thanks-reason {
+  color: #888;
+  font-size: 16px;
+  font-style: italic;
+}
+
+/* Skip button */
+#creditsSkipBtn {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  background: transparent;
+  color: #555;
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  z-index: 30;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#creditsSkipBtn:hover {
+  color: #00ff88;
+  border-color: #00ff88;
+}

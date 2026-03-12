@@ -312,48 +312,104 @@ function startGame() {
 // --- Game Over ---
 function showGameOver(victory) {
   gameState = 'gameover';
-  gameOverEl.style.display = 'flex';
   hudEl.style.display = 'none';
-  sound.stopBossMusic();
-
-  const titleEl = document.getElementById('gameOverTitle');
-  const textEl = document.getElementById('gameOverText');
-  const statsEl = document.getElementById('gameOverStats');
 
   if (victory) {
-    titleEl.textContent = 'VICTORY';
-    titleEl.style.color = '#00ff88';
-    textEl.textContent = 'You have been... not replaced. For now.';
-    sound.playVictory();
+    // Show end credits — keep boss music looping
+    showCredits();
   } else {
+    gameOverEl.style.display = 'flex';
+    sound.stopBossMusic();
+
+    const titleEl = document.getElementById('gameOverTitle');
+    const textEl = document.getElementById('gameOverText');
+    const statsEl = document.getElementById('gameOverStats');
+
     titleEl.textContent = 'GAME OVER';
     titleEl.style.color = '#ff4444';
     textEl.textContent = 'Your job is safe... until the next reorg.';
     sound.playDeath();
-  }
 
-  const minutes = Math.floor(gameTime / 60);
-  const seconds = Math.floor(gameTime % 60);
-  let statsText = `Time survived: ${minutes}:${seconds.toString().padStart(2, '0')}\n`;
-  statsText += `Waves completed: ${waveManager.currentWave}\n`;
-  statsText += `Team Level: ${teamXP.level}\n\n`;
+    const minutes = Math.floor(gameTime / 60);
+    const seconds = Math.floor(gameTime % 60);
+    let statsText = `Time survived: ${minutes}:${seconds.toString().padStart(2, '0')}\n`;
+    statsText += `Waves completed: ${waveManager.currentWave}\n`;
+    statsText += `Team Level: ${teamXP.level}\n\n`;
 
-  let mvp = null;
-  let maxKills = -1;
-  for (const p of players) {
-    statsText += `${p.name}: ${p.kills} kills\n`;
-    if (p.kills > maxKills) { maxKills = p.kills; mvp = p; }
+    let mvp = null;
+    let maxKills = -1;
+    for (const p of players) {
+      statsText += `${p.name}: ${p.kills} kills\n`;
+      if (p.kills > maxKills) { maxKills = p.kills; mvp = p; }
+    }
+    if (mvp) statsText += `\nMVP: ${mvp.name}`;
+    statsEl.textContent = statsText;
+
+    document.getElementById('restartBtn').onclick = () => {
+      gameState = 'lobby';
+      gameOverEl.style.display = 'none';
+      lobbyEl.style.display = 'flex';
+      updateLobbyUI();
+    };
   }
-  if (mvp) statsText += `\nMVP: ${mvp.name}`;
-  statsEl.textContent = statsText;
 
   network.sendGameOver(victory, { time: gameTime, wave: waveManager.currentWave });
+}
 
-  document.getElementById('restartBtn').onclick = () => {
-    gameState = 'lobby';
-    gameOverEl.style.display = 'none';
-    lobbyEl.style.display = 'flex';
-    updateLobbyUI();
+function showCredits() {
+  const creditsEl = document.getElementById('credits');
+  const scrollEl = document.getElementById('creditsScroll');
+
+  // Reset animation if replayed
+  scrollEl.style.animation = 'none';
+  scrollEl.offsetHeight; // force reflow
+  scrollEl.style.animation = '';
+
+  creditsEl.style.display = 'block';
+
+  function endCredits() {
+    creditsEl.style.display = 'none';
+    sound.stopBossMusic();
+    // Show the normal victory game-over screen
+    gameOverEl.style.display = 'flex';
+    const titleEl = document.getElementById('gameOverTitle');
+    const textEl = document.getElementById('gameOverText');
+    const statsEl = document.getElementById('gameOverStats');
+
+    titleEl.textContent = 'VICTORY';
+    titleEl.style.color = '#00ff88';
+    textEl.textContent = 'You have been... not replaced. For now.';
+
+    const minutes = Math.floor(gameTime / 60);
+    const seconds = Math.floor(gameTime % 60);
+    let statsText = `Time survived: ${minutes}:${seconds.toString().padStart(2, '0')}\n`;
+    statsText += `Waves completed: ${waveManager.currentWave}\n`;
+    statsText += `Team Level: ${teamXP.level}\n\n`;
+
+    let mvp = null;
+    let maxKills = -1;
+    for (const p of players) {
+      statsText += `${p.name}: ${p.kills} kills\n`;
+      if (p.kills > maxKills) { maxKills = p.kills; mvp = p; }
+    }
+    if (mvp) statsText += `\nMVP: ${mvp.name}`;
+    statsEl.textContent = statsText;
+
+    document.getElementById('restartBtn').onclick = () => {
+      gameState = 'lobby';
+      gameOverEl.style.display = 'none';
+      lobbyEl.style.display = 'flex';
+      updateLobbyUI();
+    };
+  }
+
+  // End credits when animation finishes
+  scrollEl.addEventListener('animationend', endCredits, { once: true });
+
+  // Skip button
+  document.getElementById('creditsSkipBtn').onclick = () => {
+    scrollEl.style.animation = 'none';
+    endCredits();
   };
 }
 

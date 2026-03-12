@@ -70,10 +70,10 @@ export class WaveManager {
       this.waveTimer = 0;
     }
 
-    // Check boss defeated
+    // Check boss defeated (boss may have been filtered from array already)
     if (this.bossSpawned && !this.bossDefeated) {
       const boss = enemies.find(e => e.type === 'boss');
-      if (boss && !boss.alive) {
+      if (!boss || !boss.alive) {
         this.bossDefeated = true;
       }
     }
