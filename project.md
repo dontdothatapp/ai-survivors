@@ -61,7 +61,7 @@ AI_survivors/
 - All game logic runs in the browser
 - `main.js` owns the game loop (`requestAnimationFrame`), imports all modules
 - Camera tracks centroid of alive players (smooth lerp)
-- Keyboard fallback: press **Space** to add debug player, **WASD/arrows** to move, **Enter** to start
+- Keyboard fallback: press **Space** to add debug player, **WASD/arrows** to move, **Enter** to start, **Esc** to pause/resume (shows player stats overlay)
 
 ### Phone Controller
 - Connects to `/controller`, receives assigned player ID + list of taken characters
@@ -97,25 +97,26 @@ AI_survivors/
 ## Game Loop (`main.js`)
 
 Each frame:
-1. **Voting pause check** — if `votingState !== null`, skip simulation, render voting overlay with upgrade cards + colored vote dots
-2. `WaveManager.update()` — ticks sprint timer; if sprint pause active, counts down and returns early
-3. **Sprint pause check** — if new sprint just started (3s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
-4. **Global event pause check** — if `globalEventManager.pauseActive`, skip simulation, render event announcement overlay; on transition execute the event effect
-5. **Mid-sprint trigger** — at the midpoint of each sprint (22.5s), trigger the predefined global event for that sprint with 3s pause
-6. Player `update(dt)` — apply joystick input, move, update duck orbit angle
-3. Soft player-player collision (push apart)
-4. Coffee aura boost (temporarily bumps `fireRateMultiplier`)
-5. `updateWeapons(dt, player, projectiles, enemies)` for each player
-6. Rubber duck contact damage check
-7. Enemy update — feedback enemies fly straight (skip AI), others: frozen timer then type-specific AI
-7b. Ally update — move linearly, damage enemies on contact, cleanup when off-screen; stop Aleksei music when ally leaves
-8. Projectile update + enemy collision detection
-9. Enemy-player contact damage
-10. XP gem magnet + collection → team XP pool → voting trigger on level-up
-11. Cleanup dead entities
-13. Game-over check (all dead / boss defeated)
-14. Camera update → soft-pull players toward viewport → render
-15. Broadcast state to phones (5 Hz)
+1. **Manual pause check** — if `gamePaused` (Esc key), render pause overlay with player stats/weapons and return
+2. **Voting pause check** — if `votingState !== null`, skip simulation, render voting overlay with upgrade cards + colored vote dots
+3. `WaveManager.update()` — ticks sprint timer; if sprint pause active, counts down and returns early
+4. **Sprint pause check** — if new sprint just started (3s), skip simulation, render sprint announcement overlay; on transition spawn featured enemy
+5. **Global event pause check** — if `globalEventManager.pauseActive`, skip simulation, render event announcement overlay; on transition execute the event effect
+6. **Mid-sprint trigger** — at the midpoint of each sprint (22.5s), trigger the predefined global event for that sprint with 3s pause
+7. Player `update(dt)` — apply joystick input, move, update orbit angle
+8. Soft player-player collision (push apart)
+9. `updateWeapons(dt, player, projectiles, enemies)` for each player
+10. Orbits contact damage check
+11. **Laser beam contact damage** — for each player with `laser_eyes`: cycle beam on/off timer, raycast from player in facing direction, point-to-segment distance check against enemies, apply damage with per-enemy cooldown
+12. Enemy update — feedback enemies fly straight (skip AI), others: frozen timer then type-specific AI
+13. Ally update — move linearly, damage enemies on contact, cleanup when off-screen; stop Aleksei music when ally leaves
+14. Projectile update + enemy collision detection
+15. Enemy-player contact damage
+16. XP gem magnet + collection → team XP pool → voting trigger on level-up
+17. Cleanup dead entities
+18. Game-over check (all dead / boss defeated)
+19. Camera update → soft-pull players toward viewport → render
+20. Broadcast state to phones (5 Hz)
 
 ---
 
@@ -128,6 +129,9 @@ Each frame:
 - `bonusPierce` — added to all projectile pierce values
 - `projectileCount` — number of projectiles fired per shot (1 by default); extras are fanned out at ±0.25 rad intervals around the facing direction
 - `weapons[]` — array of `{type, cooldown}` objects
+- `weaponBonuses` — `{ weaponType: { progressionId: level } }` for weapon-specific upgrades
+- `laserHitCooldowns` — Map of enemy→timer for laser beam per-enemy cooldowns
+- `laserBeamTimer` / `laserBeamActive` — cycling timer for laser on/off state
 - `level` — synced from team XP pool on level-up
 - `invincibleTimer` — brief i-frames after taking damage (0.3s)
 
@@ -172,24 +176,27 @@ Each frame:
 
 ## Weapons
 
-All defined in `WEAPON_DEFS` in `weapons.js`. Each has `cooldown`, `damage`, `speed`, `pierce`, and a `fire(player, projectiles, enemies)` method.
+All defined in `WEAPON_DEFS` in `weapons.js`. Each has `cooldown`, `damage`, `speed`, `pierce`, `progression` (array of upgrade IDs), and a `fire(player, projectiles, enemies)` method. Passive weapons (`isPassive: true`) skip `fire()` — their effects are handled in `main.js`.
 
-| Weapon | Cooldown | Behavior |
-|--------|----------|----------|
-| `code_review` | 0.5s | Fires in facing direction, pierces 1 |
-| `stackoverflow` | 1.2s | 4 cardinal direction projectiles |
-| `git_revert` | 3s | AOE pulse (radius 80), hits all in range |
-| `rubber_duck` | passive | Orbits player at r=50, contact damage (0.5s cooldown per enemy; shows hit sound + floating text) |
-| `unit_test` | 0.15s | Fast forward volley with slight spread |
-| `hotfix` | 2s | Slow homing projectile, high damage |
-| `coffee` | passive | Aura — +30% fire rate to nearby allies |
-| `standup` | 8s | Freezes all enemies within r=120 for 2s |
+| Weapon | Cooldown | Damage | Behavior | Progression |
+|--------|----------|--------|----------|-------------|
+| `directional_shot` | 0.7s | 12 | Fires in facing direction, pierces 1 | fire_rate, damage, pierce, multishot |
+| `four_projectiles` | 1.2s | 10 | 4 cardinal direction projectiles | fire_rate, damage, pierce |
+| `orbits` | passive | 8 | Orbits player at r=50, contact damage (0.5s cooldown per enemy) | rotation_speed, damage |
+| `minigun` | 0.2s | 2 | Fast forward volley with random spread (DPS ~10) | damage, reduce_spread |
+| `lightning` | 1.5s | 18 | AOE strikes near player | extra_strike, reduce_cooldown |
+| `laser_eyes` | passive | 5/tick | Continuous beam from player in facing direction; cycles 1s on / 1s off; damages enemies touching the beam (beamLength=150, beamHitInterval=0.3s) | laser_length, damage |
+| `octopus_hands` | 1.0s | 8 | Fires 8 short-lived tentacles in random directions (speed=150, lifetime=0.3s); rendered as wavy purple lines from player to projectile tip | fire_rate, damage |
+| `guided_missile` | 2.0s | 30 | Slow homing projectile | fire_rate, damage, multishot |
+| `shotgun` | 1.8s | 18 | 6 pellets in a spread cone | fire_rate, distance, pierce |
 
-All players start with `code_review`. Additional weapons are gained via the "Learn a new framework" upgrade.
+Each character starts with their `defaultWeapon` from `characters.js`. Additional weapons are gained via the "Learn a new framework" upgrade.
 
-Cooldown is divided by `player.fireRateMultiplier`. Pierce is summed with `player.bonusPierce`.
+### Weapon Progression
 
-When `player.projectileCount > 1`, non-passive weapons fire multiple projectiles per shot, fanned out symmetrically around the facing direction (0.25 rad apart). The original facing is restored after firing so there are no side effects on movement or AI. Weapons that ignore facing (e.g. `stackoverflow`) simply fire N times in their fixed pattern.
+Each weapon has a `progression` array of upgrade IDs. When a weapon-specific progression upgrade is picked, `player.weaponBonuses[weaponType][progressionId]` increments. Effects vary per ID: `fire_rate` +20% per level, `damage` +15%, `pierce` +1, `multishot` +1 projectile, `rotation_speed` +50%, `reduce_spread` −0.1 rad, `extra_strike` +1, `reduce_cooldown` +20%, `laser_length` +80px, `distance` +0.15s lifetime.
+
+Cooldown is divided by `player.fireRateMultiplier × fire_rate_bonus × cooldown_reduction`.
 
 ---
 
@@ -252,8 +259,11 @@ XP is shared in a single **team pool** (`teamXP` in `main.js`). When the team le
 - Sprites: programmatic pixel art cached to offscreen canvases (`sprites.js`); player avatars loaded from `/avatars/` PNGs (preloaded on game screen load, fallback to pixel sprite if not loaded)
 - In-game player display: HP bar above character, character name below
 - HUD: wave/time top-left, engineer count top-right, mini HP bars per player, team XP bar top-center, debug enemy-count overlay bottom-left (total alive + per-type breakdown sorted by count)
+- Pause overlay (Esc): dark overlay + "PAUSED" title + per-player stats (avatar, name, HP, speed, damage multiplier, weapons with progression levels) + resume hint
 - Voting overlay: dark overlay + "LEVEL UP!" title + 3 upgrade cards (name + description) + colored vote dots below each card + vote progress counter
 - Sprint announcement overlay: dark overlay + sprint title + "NEW THREAT DETECTED" + enemy sprite (96×96, pixel-art scaled) + enemy name + countdown
+- Laser beam: 3-layer line (outer glow, core red, inner bright pink) from player in facing direction; only drawn when `player.laserBeamActive`
+- Tentacle projectiles: wavy purple sine-wave lines from owner player position to projectile tip (8 segments, alpha fading with lifetime)
 - Ally rendering: 64x64 avatar image with green glow ring (drawn between enemies and players)
 - Global event announcement overlay: dark overlay + scanline flicker + label + pulsing event name (42px bold) + description + countdown; red theme for negative events, green theme for positive (aleksei)
 

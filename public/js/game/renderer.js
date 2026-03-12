@@ -1,5 +1,6 @@
 // All canvas drawing
 import { getPlayerSprite, getEnemySprite, getProjectileSprite, getXPGemSprite, getAvatarImage } from './sprites.js';
+import { WEAPON_DEFS } from './weapons.js';
 
 export class Renderer {
   constructor(canvas) {
@@ -83,7 +84,7 @@ export class Renderer {
     // Projectiles
     for (const p of projectiles) {
       if (!p.alive) continue;
-      this._drawProjectile(p);
+      this._drawProjectile(p, players);
     }
 
     // Enemies
@@ -136,6 +137,11 @@ export class Renderer {
     // Voting overlay
     if (state.paused && state.votingState) {
       this._drawVotingOverlay(state.votingState);
+    }
+
+    // Pause overlay
+    if (state.gamePaused) {
+      this._drawPauseOverlay(state);
     }
   }
 
@@ -218,22 +224,49 @@ export class Renderer {
       ctx.drawImage(sprite, x - 16, y - 16, 32, 32);
     }
 
-    // Rubber duck orbit
-    if (player.weapons.some(w => w.type === 'rubber_duck')) {
-      const duckX = x + Math.cos(player.rubberDuckAngle) * 50;
-      const duckY = y + Math.sin(player.rubberDuckAngle) * 50;
+    // Orbits weapon visual
+    if (player.weapons.some(w => w.type === 'orbits')) {
+      const orbitX = x + Math.cos(player.orbitAngle) * 50;
+      const orbitY = y + Math.sin(player.orbitAngle) * 50;
       ctx.fillStyle = '#ffdd00';
       ctx.beginPath();
-      ctx.arc(duckX, duckY, 6, 0, Math.PI * 2);
+      ctx.arc(orbitX, orbitY, 6, 0, Math.PI * 2);
       ctx.fill();
+      // Draw orbit trail ring
+      ctx.strokeStyle = 'rgba(255, 221, 0, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, 50, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
-    // Coffee aura
-    if (player.coffeeActive) {
-      ctx.strokeStyle = '#8B451366';
+    // Laser beam visual (only when active)
+    if (player.laserBeamActive && player.weapons.some(w => w.type === 'laser_eyes')) {
+      const laserDef = WEAPON_DEFS.laser_eyes;
+      const lengthBonus = player.weaponBonuses?.laser_eyes?.laser_length || 0;
+      const beamLen = laserDef.beamLength + lengthBonus * 80;
+      const bx = x + player.facingX * beamLen;
+      const by = y + player.facingY * beamLen;
+      // Outer glow
+      ctx.strokeStyle = 'rgba(255, 50, 50, 0.15)';
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      // Core
+      ctx.strokeStyle = 'rgba(255, 30, 30, 0.6)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      // Inner bright
+      ctx.strokeStyle = 'rgba(255, 180, 200, 0.9)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, y, 120, 0, Math.PI * 2);
+      ctx.moveTo(x, y);
+      ctx.lineTo(bx, by);
       ctx.stroke();
     }
 
@@ -318,8 +351,60 @@ export class Renderer {
     }
   }
 
-  _drawProjectile(proj) {
+  _drawProjectile(proj, players) {
     const { ctx } = this;
+
+    // Tentacle wavy line from player to projectile
+    if (proj.isTentacle) {
+      const owner = players ? players.find(p => p.id === proj.ownerId) : null;
+      if (owner && owner.alive) {
+        const alpha = Math.min(proj.lifetime / 0.3, 1);
+        const segments = 8;
+        const sx = owner.x;
+        const sy = owner.y;
+        const ex = proj.x;
+        const ey = proj.y;
+        const dx = ex - sx;
+        const dy = ey - sy;
+        const len = Math.hypot(dx, dy) || 1;
+        const perpX = -dy / len;
+        const perpY = dx / len;
+        ctx.strokeStyle = `rgba(180, 80, 255, ${alpha * 0.8})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        for (let i = 1; i <= segments; i++) {
+          const t = i / segments;
+          const baseX = sx + dx * t;
+          const baseY = sy + dy * t;
+          const wave = Math.sin(t * Math.PI * 3 + proj.tentacleSeed) * 8 * (1 - t);
+          ctx.lineTo(baseX + perpX * wave, baseY + perpY * wave);
+        }
+        ctx.stroke();
+      }
+      // Draw small circle at projectile tip
+      const alpha = Math.min(proj.lifetime / 0.3, 1);
+      ctx.fillStyle = `rgba(200, 100, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+
+    // Lightning flash — bright circle at impact
+    if (proj.isLightning) {
+      const alpha = proj.lifetime / 0.3;
+      ctx.fillStyle = `rgba(255, 255, 100, ${alpha * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, proj.aoe, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 255, 200, ${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, proj.aoe * 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+      return;
+    }
 
     if (proj.isAOE) {
       // AOE pulse ring
@@ -329,6 +414,22 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(proj.x, proj.y, proj.aoe * (1 - alpha * 0.3), 0, Math.PI * 2);
       ctx.stroke();
+      return;
+    }
+
+    // Laser beam — elongated rectangle
+    if (proj.isLaser) {
+      const angle = Math.atan2(proj.vy, proj.vx);
+      const length = 30;
+      const width = 4;
+      ctx.save();
+      ctx.translate(proj.x, proj.y);
+      ctx.rotate(angle);
+      ctx.fillStyle = `rgba(255, 30, 30, ${Math.min(proj.lifetime * 3, 1)})`;
+      ctx.fillRect(-length / 2, -width / 2, length, width);
+      ctx.fillStyle = `rgba(255, 150, 150, ${Math.min(proj.lifetime * 3, 0.8)})`;
+      ctx.fillRect(-length / 2 + 2, -width / 2 + 1, length - 4, width - 2);
+      ctx.restore();
       return;
     }
 
@@ -459,6 +560,75 @@ export class Renderer {
     ctx.fillStyle = '#555';
     ctx.font = '13px "Courier New"';
     ctx.fillText(isPositive ? `Arriving in ${secs}...` : `Activating in ${secs}...`, cx, cy + 90);
+  }
+
+  _drawPauseOverlay(state) {
+    const { ctx, width, height } = this;
+    const { players } = state;
+
+    // Dark overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, width, height);
+
+    // Title
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 32px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSED', width / 2, 60);
+
+    // Player stats
+    const startY = 100;
+    const lineH = 18;
+
+    for (let pi = 0; pi < players.length; pi++) {
+      const p = players[pi];
+      const colX = width / 2 - 200;
+      let y = startY + pi * 160;
+
+      // Avatar + name
+      const avatarImg = p.characterId ? getAvatarImage(p.characterId) : null;
+      if (avatarImg) {
+        ctx.drawImage(avatarImg, colX, y - 12, 24, 24);
+      }
+      ctx.fillStyle = p.color;
+      ctx.font = 'bold 16px "Courier New"';
+      ctx.textAlign = 'left';
+      ctx.fillText(p.name + (p.alive ? '' : ' (DEAD)'), colX + 30, y + 4);
+      y += lineH + 4;
+
+      // Stats
+      ctx.fillStyle = '#ccc';
+      ctx.font = '13px "Courier New"';
+      ctx.fillText(`HP: ${Math.floor(p.hp)}/${p.maxHp}`, colX + 30, y);
+      y += lineH;
+      ctx.fillText(`Speed: ${p.speed}`, colX + 30, y);
+      y += lineH;
+      ctx.fillText(`Damage: x${p.damageMultiplier.toFixed(2)}`, colX + 30, y);
+      y += lineH;
+
+      // Weapons
+      ctx.fillStyle = '#ffcc00';
+      ctx.font = 'bold 13px "Courier New"';
+      ctx.fillText('Weapons:', colX + 30, y);
+      y += lineH;
+      ctx.fillStyle = '#aaa';
+      ctx.font = '12px "Courier New"';
+      for (const w of p.weapons) {
+        const def = WEAPON_DEFS[w.type];
+        if (!def) continue;
+        const bonuses = p.weaponBonuses?.[w.type] || {};
+        const totalLevels = Object.values(bonuses).reduce((sum, v) => sum + v, 0);
+        const levelStr = totalLevels > 0 ? ` +${totalLevels}` : '';
+        ctx.fillText(`  ${def.name}${levelStr}`, colX + 30, y);
+        y += lineH;
+      }
+    }
+
+    // Resume hint
+    ctx.fillStyle = '#666';
+    ctx.font = '14px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press ESC to resume', width / 2, height - 30);
   }
 
   _drawVotingOverlay(votingState) {

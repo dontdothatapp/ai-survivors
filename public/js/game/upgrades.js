@@ -1,11 +1,68 @@
-// Upgrade pool — sarcastic names, real effects
-import { WEAPON_DEFS } from './weapons.js';
+// Upgrade pool — vague descriptions, no exact stats shown
+import { WEAPON_DEFS, applyProgression, revertProgression } from './weapons.js';
 
 const UPGRADES = [
   {
+    id: 'improve_weapon',
+    name: 'Improve Weapon',
+    desc: 'Improve a weapon',
+    _dynamic: true,
+    apply(player) {
+      if (player.weapons.length === 0) return;
+      const w = player.weapons[Math.floor(Math.random() * player.weapons.length)];
+      const def = WEAPON_DEFS[w.type];
+      if (!def || !def.progression || def.progression.length === 0) return;
+      const prog = def.progression[Math.floor(Math.random() * def.progression.length)];
+      applyProgression(player, w.type, prog);
+      // Store what was applied for revert
+      if (!player._lastWeaponUpgrade) player._lastWeaponUpgrade = [];
+      player._lastWeaponUpgrade.push({ weaponType: w.type, progressionId: prog });
+    },
+    revert(player) {
+      if (!player._lastWeaponUpgrade || player._lastWeaponUpgrade.length === 0) return;
+      const last = player._lastWeaponUpgrade.pop();
+      if (last) revertProgression(player, last.weaponType, last.progressionId);
+    },
+  },
+  {
+    id: 'improve_health',
+    name: 'Improve Health',
+    desc: 'Increase max health',
+    apply(player) {
+      player.maxHp += 25;
+      player.hp = player.maxHp;
+    },
+    revert(player) {
+      player.maxHp = Math.max(100, player.maxHp - 25);
+      player.hp = Math.min(player.hp, player.maxHp);
+    },
+  },
+  {
+    id: 'improve_speed',
+    name: 'Improve Speed',
+    desc: 'Move faster',
+    apply(player) {
+      player.speed *= 1.15;
+    },
+    revert(player) {
+      player.speed = Math.max(150, player.speed / 1.15);
+    },
+  },
+  {
+    id: 'improve_pickup',
+    name: 'Improve XP Collection',
+    desc: 'Collect XP from further away',
+    apply(player) {
+      player.pickupRadius *= 1.5;
+    },
+    revert(player) {
+      player.pickupRadius = Math.max(50, player.pickupRadius / 1.5);
+    },
+  },
+  {
     id: 'new_weapon',
-    name: '"Learn a new framework"',
-    desc: 'Add a random weapon',
+    name: 'New Weapon',
+    desc: 'Learn a new weapon',
     apply(player) {
       const owned = new Set(player.weapons.map(w => w.type));
       const available = Object.keys(WEAPON_DEFS).filter(k => !owned.has(k));
@@ -19,101 +76,32 @@ const UPGRADES = [
     },
     revert: null,
   },
-  {
-    id: 'damage',
-    name: '"Senior engineer review"',
-    desc: '+20% damage',
-    apply(player) {
-      player.damageMultiplier = (player.damageMultiplier || 1) + 0.2;
-    },
-    revert(player) {
-      player.damageMultiplier = Math.max(1.0, (player.damageMultiplier || 1) - 0.2);
-    },
-  },
-  {
-    id: 'speed',
-    name: '"Agile methodology"',
-    desc: '+15% move speed',
-    apply(player) {
-      player.speed *= 1.15;
-    },
-    revert(player) {
-      player.speed = Math.max(150, player.speed / 1.15);
-    },
-  },
-  {
-    id: 'hp',
-    name: '"Work-life balance"',
-    desc: '+25 max HP, full heal',
-    apply(player) {
-      player.maxHp += 25;
-      player.hp = player.maxHp;
-    },
-    revert(player) {
-      player.maxHp = Math.max(100, player.maxHp - 25);
-      player.hp = Math.min(player.hp, player.maxHp);
-    },
-  },
-  {
-    id: 'fire_rate',
-    name: '"Caffeinated"',
-    desc: '+20% fire rate',
-    apply(player) {
-      player.fireRateMultiplier = (player.fireRateMultiplier || 1) + 0.2;
-    },
-    revert(player) {
-      player.fireRateMultiplier = Math.max(1.0, (player.fireRateMultiplier || 1) - 0.2);
-    },
-  },
-  {
-    id: 'pickup',
-    name: '"Networking skills"',
-    desc: '+50% pickup radius',
-    apply(player) {
-      player.pickupRadius *= 1.5;
-    },
-    revert(player) {
-      player.pickupRadius = Math.max(50, player.pickupRadius / 1.5);
-    },
-  },
-  {
-    id: 'pierce',
-    name: '"Vertical slice"',
-    desc: '+1 pierce on projectiles',
-    apply(player) {
-      player.bonusPierce = (player.bonusPierce || 0) + 1;
-    },
-    revert(player) {
-      player.bonusPierce = Math.max(0, (player.bonusPierce || 0) - 1);
-    },
-  },
-  {
-    id: 'aoe',
-    name: '"Scope creep"',
-    desc: '+25% AOE size',
-    apply(player) {
-      player.aoeMultiplier = (player.aoeMultiplier || 1) + 0.25;
-    },
-    revert(player) {
-      player.aoeMultiplier = Math.max(1.0, (player.aoeMultiplier || 1) - 0.25);
-    },
-  },
-  {
-    id: 'multishot',
-    name: '"Pair programming"',
-    desc: 'Fire an extra projectile per shot',
-    apply(player) {
-      player.projectileCount = (player.projectileCount || 1) + 1;
-    },
-    revert(player) {
-      player.projectileCount = Math.max(1, (player.projectileCount || 1) - 1);
-    },
-  },
 ];
 
+// Generate dynamic name/desc for improve_weapon based on player's weapons
+function getDynamicUpgrade(player) {
+  if (!player || player.weapons.length === 0) {
+    return { id: 'improve_weapon', name: 'Improve Weapon', desc: 'Improve a weapon' };
+  }
+  const w = player.weapons[Math.floor(Math.random() * player.weapons.length)];
+  const def = WEAPON_DEFS[w.type];
+  const weaponName = def ? def.name : w.type;
+  return {
+    id: 'improve_weapon',
+    name: `Improve ${weaponName}`,
+    desc: `Improve ${weaponName}`,
+  };
+}
+
 // Pick n random unique upgrades
-export function rollUpgrades(n = 3) {
-  const pool = [...UPGRADES];
+export function rollUpgrades(n = 3, player) {
+  const pool = UPGRADES.map(u => {
+    if (u._dynamic) {
+      const dynamic = getDynamicUpgrade(player);
+      return { ...u, name: dynamic.name, desc: dynamic.desc };
+    }
+    return { ...u };
+  });
   const picks = [];
   for (let i = 0; i < n && pool.length > 0; i++) {
     const idx = Math.floor(Math.random() * pool.length);

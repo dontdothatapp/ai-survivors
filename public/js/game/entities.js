@@ -33,18 +33,18 @@ export class Player {
     this.name = characterInfo ? characterInfo.name : 'Player';
     this.avatar = characterInfo ? characterInfo.avatar : null;
     this.level = 1;
-    this.weapons = [{ type: 'code_review', cooldown: 0 }];
+    this.weapons = [];
     this.damageMultiplier = 1;
     this.fireRateMultiplier = 1;
     this.pickupRadius = 50;
-    this.bonusPierce = 0;
-    this.aoeMultiplier = 1;
-    this.projectileCount = 1;
     this.invincibleTimer = 0;
     this.kills = 0;
     // Weapon-specific state
-    this.rubberDuckAngle = 0;
-    this.coffeeActive = false;
+    this.orbitAngle = 0;
+    this.weaponBonuses = {}; // { weaponType: { progressionId: level } }
+    this.laserHitCooldowns = new Map();
+    this.laserBeamTimer = 0; // cycles: 0→onDuration = on, then onDuration→onDuration+offDuration = off
+    this.laserBeamActive = true;
   }
 
   update(dt) {
@@ -66,8 +66,9 @@ export class Player {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    // Rubber duck orbit
-    this.rubberDuckAngle += dt * 3;
+    // Orbit angle (for orbits weapon)
+    const rotSpeedBonus = 1 + (this.weaponBonuses?.orbits?.rotation_speed || 0) * 0.5;
+    this.orbitAngle += dt * 3 * rotSpeedBonus;
   }
 
   takeDamage(amount) {
@@ -406,7 +407,11 @@ export class Projectile {
     this.hitEnemies = new Set();
     this.radius = 5;
     // Homing
-    this.homing = type === 'hotfix';
+    this.homing = type === 'guided_missile';
+    // Laser flag
+    this.isLaser = false;
+    // Lightning flag
+    this.isLightning = false;
   }
 
   update(dt, enemies) {

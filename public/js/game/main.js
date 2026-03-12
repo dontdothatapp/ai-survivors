@@ -30,6 +30,7 @@ let midSprintEventFired = false;
 let gameTime = 0;
 let gameState = 'lobby'; // lobby | playing | gameover
 let teamXP = { xp: 0, level: 1, xpToNext: 15 };
+let gamePaused = false;
 let votingState = null; // { options: [...], votes: Map<playerId, upgradeId> }
 let lobbyPlayers = new Map(); // id -> {id, color, name, characterId, avatar}
 
@@ -258,6 +259,9 @@ window.addEventListener('keydown', (e) => {
     lobbyPlayers.set(-1, { id: -1, characterId: 'stepan', color: '#ff8844', name: 'Debug Dev', avatar: '/avatars/stepan.png' });
     updateLobbyUI();
   }
+  if (e.key === 'Escape' && gameState === 'playing' && !votingState && !waveManager.sprintPauseActive && !globalEventManager.pauseActive) {
+    gamePaused = !gamePaused;
+  }
   if (e.key === 'Enter' && gameState === 'lobby' && lobbyPlayers.size > 0) {
     sound.unlockAudio();
     startGame();
@@ -274,6 +278,12 @@ function addPlayer(id) {
     avatar: info.avatar,
   } : null;
   const p = new Player(id, charInfo);
+
+  // Set starting weapon from character definition
+  const charDef = info ? CHARACTERS.find(c => c.id === info.characterId) : null;
+  const startWeapon = charDef?.defaultWeapon || 'directional_shot';
+  p.weapons = [{ type: startWeapon, cooldown: 0 }];
+
   // Spread players out
   const angle = (players.length / 8) * Math.PI * 2;
   p.x = Math.cos(angle) * 60;
@@ -296,6 +306,7 @@ function startGame() {
   gameTime = 0;
   teamXP = { xp: 0, level: 1, xpToNext: 15 };
   votingState = null;
+  gamePaused = false;
   waveManager = new WaveManager();
   globalEventManager = new GlobalEventManager();
   midSprintEventFired = false;
@@ -424,6 +435,12 @@ function gameLoop(timestamp) {
   lastTime = timestamp;
 
   if (gameState !== 'playing') return;
+
+  if (gamePaused) {
+    renderer.updateCamera(players, dt);
+    renderer.render({ players, enemies, projectiles, xpGems, allies, wave: waveManager.currentWave, gameTime, teamXP, gamePaused: true });
+    return;
+  }
 
   // Pause when voting is in progress
   if (votingState !== null) {
@@ -566,73 +583,88 @@ function gameLoop(timestamp) {
     }
   }
 
-  // Coffee aura — boost fire rate for nearby allies
-  for (const p of players) {
-    p.coffeeActive = false;
-  }
-  for (const p of players) {
-    if (!p.alive) continue;
-    const hasCoffee = p.weapons.some(w => w.type === 'coffee');
-    if (!hasCoffee) continue;
-    p.coffeeActive = true;
-    const def = WEAPON_DEFS.coffee;
-    for (const other of players) {
-      if (other === p || !other.alive) continue;
-      const d = Math.hypot(other.x - p.x, other.y - p.y);
-      if (d < def.auraRadius) {
-        other.coffeeActive = true;
-      }
-    }
-  }
-
-  // Apply coffee boost temporarily during weapon update
-  for (const p of players) {
-    if (p.coffeeActive) {
-      p._origFireRate = p.fireRateMultiplier;
-      p.fireRateMultiplier *= 1.3;
-    }
-  }
-
   // Update weapons & fire
   for (const p of players) {
     updateWeapons(dt, p, projectiles, enemies);
   }
 
-  // Restore fire rate
-  for (const p of players) {
-    if (p._origFireRate !== undefined) {
-      p.fireRateMultiplier = p._origFireRate;
-      delete p._origFireRate;
-    }
-  }
-
-  // Rubber duck contact damage
+  // Orbits contact damage
   for (const p of players) {
     if (!p.alive) continue;
-    if (!p.weapons.some(w => w.type === 'rubber_duck')) continue;
-    if (!p._duckHitCooldowns) p._duckHitCooldowns = new Map();
+    if (!p.weapons.some(w => w.type === 'orbits')) continue;
+    if (!p._orbitHitCooldowns) p._orbitHitCooldowns = new Map();
     // Decrement cooldowns and remove expired
-    for (const [enemy, timer] of p._duckHitCooldowns) {
+    for (const [enemy, timer] of p._orbitHitCooldowns) {
       const newTimer = timer - dt;
-      if (newTimer <= 0) p._duckHitCooldowns.delete(enemy);
-      else p._duckHitCooldowns.set(enemy, newTimer);
+      if (newTimer <= 0) p._orbitHitCooldowns.delete(enemy);
+      else p._orbitHitCooldowns.set(enemy, newTimer);
     }
-    const def = WEAPON_DEFS.rubber_duck;
-    const duckX = p.x + Math.cos(p.rubberDuckAngle) * def.orbitRadius;
-    const duckY = p.y + Math.sin(p.rubberDuckAngle) * def.orbitRadius;
+    const def = WEAPON_DEFS.orbits;
+    const orbitX = p.x + Math.cos(p.orbitAngle) * def.orbitRadius;
+    const orbitY = p.y + Math.sin(p.orbitAngle) * def.orbitRadius;
+    const damageBonus = 1 + (p.weaponBonuses?.orbits?.damage || 0) * 0.15;
     for (const e of enemies) {
       if (!e.alive) continue;
-      if (p._duckHitCooldowns.has(e)) continue;
-      const d = Math.hypot(e.x - duckX, e.y - duckY);
+      if (p._orbitHitCooldowns.has(e)) continue;
+      const d = Math.hypot(e.x - orbitX, e.y - orbitY);
       if (d < e.radius + 8) {
-        const damage = def.orbitDamage * p.damageMultiplier;
+        const damage = def.orbitDamage * p.damageMultiplier * damageBonus;
         const killed = e.takeDamage(damage);
-        p._duckHitCooldowns.set(e, 0.5);
+        p._orbitHitCooldowns.set(e, 0.5);
         if (killed) {
           onEnemyKilled(e, p);
         } else {
           sound.playHit();
           renderer.addFloatingText(e.x, e.y - 10, '-' + Math.floor(damage) + ' LOC', '#ff8844');
+        }
+      }
+    }
+  }
+
+  // Laser beam contact damage (cycles on/off)
+  for (const p of players) {
+    if (!p.alive) continue;
+    if (!p.weapons.some(w => w.type === 'laser_eyes')) continue;
+    const laserDef = WEAPON_DEFS.laser_eyes;
+    // Cycle beam on/off
+    p.laserBeamTimer += dt;
+    const cycleDuration = laserDef.beamOnDuration + laserDef.beamOffDuration;
+    if (p.laserBeamTimer >= cycleDuration) p.laserBeamTimer -= cycleDuration;
+    p.laserBeamActive = p.laserBeamTimer < laserDef.beamOnDuration;
+    // Decrement hit cooldowns
+    for (const [enemy, timer] of p.laserHitCooldowns) {
+      const newTimer = timer - dt;
+      if (newTimer <= 0) p.laserHitCooldowns.delete(enemy);
+      else p.laserHitCooldowns.set(enemy, newTimer);
+    }
+    if (!p.laserBeamActive) continue;
+    const lengthBonus = p.weaponBonuses?.laser_eyes?.laser_length || 0;
+    const damageBonus = 1 + (p.weaponBonuses?.laser_eyes?.damage || 0) * 0.15;
+    const beamLen = laserDef.beamLength + lengthBonus * 80;
+    const beamEndX = p.x + p.facingX * beamLen;
+    const beamEndY = p.y + p.facingY * beamLen;
+    const beamHalfWidth = 4;
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      if (p.laserHitCooldowns.has(e)) continue;
+      // Point-to-segment distance
+      const dx = beamEndX - p.x;
+      const dy = beamEndY - p.y;
+      const lenSq = dx * dx + dy * dy;
+      let t = ((e.x - p.x) * dx + (e.y - p.y) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      const closestX = p.x + t * dx;
+      const closestY = p.y + t * dy;
+      const dist = Math.hypot(e.x - closestX, e.y - closestY);
+      if (dist < e.radius + beamHalfWidth) {
+        const damage = laserDef.beamDamage * p.damageMultiplier * damageBonus;
+        const killed = e.takeDamage(damage);
+        p.laserHitCooldowns.set(e, laserDef.beamHitInterval);
+        if (killed) {
+          onEnemyKilled(e, p);
+        } else {
+          sound.playHit();
+          renderer.addFloatingText(e.x, e.y - 10, '-' + Math.floor(damage) + ' LOC', '#ff4444');
         }
       }
     }
@@ -988,7 +1020,9 @@ function executeGlobalEvent(event) {
 }
 
 function triggerTeamLevelUp() {
-  const options = rollUpgrades(3);
+  // Pass a representative player for dynamic upgrade naming
+  const representative = players.find(p => p.alive) || players[0];
+  const options = rollUpgrades(3, representative);
   votingState = { options, votes: new Map() };
   // Send to ALL controllers
   network.sendUpgradePromptToAll(options.map(o => ({

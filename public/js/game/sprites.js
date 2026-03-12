@@ -231,28 +231,51 @@ export function getEnemySprite(type) {
 export function getProjectileSprite(type) {
   return createSprite('proj_' + type, 12, 12, (ctx) => {
     switch (type) {
-      case 'code_review':
+      case 'directional_shot':
         ctx.fillStyle = '#00ffaa';
         ctx.fillRect(2, 2, 8, 8);
         ctx.fillStyle = '#fff';
         ctx.fillRect(4, 4, 4, 4);
         break;
-      case 'stackoverflow':
+      case 'four_projectiles':
         ctx.fillStyle = '#ff8800';
         ctx.fillRect(1, 1, 10, 10);
         ctx.fillStyle = '#fff';
         ctx.fillRect(4, 3, 4, 2);
         ctx.fillRect(5, 5, 2, 4);
         break;
-      case 'unit_test':
+      case 'minigun':
         ctx.fillStyle = '#44ff44';
         ctx.fillRect(3, 3, 6, 6);
         break;
-      case 'hotfix':
+      case 'guided_missile':
         ctx.fillStyle = '#ff4444';
         ctx.beginPath();
         ctx.arc(6, 6, 5, 0, Math.PI * 2);
         ctx.fill();
+        break;
+      case 'octopus_hands':
+        ctx.fillStyle = '#cc44ff';
+        ctx.fillRect(2, 4, 8, 4);
+        ctx.fillRect(4, 2, 4, 8);
+        break;
+      case 'shotgun':
+        ctx.fillStyle = '#ffaa22';
+        ctx.fillRect(3, 3, 6, 6);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(4, 5, 4, 2);
+        break;
+      case 'lightning':
+        ctx.fillStyle = '#ffff44';
+        ctx.fillRect(4, 1, 4, 3);
+        ctx.fillRect(3, 4, 4, 3);
+        ctx.fillRect(4, 7, 4, 3);
+        break;
+      case 'laser_eyes':
+        ctx.fillStyle = '#ff2222';
+        ctx.fillRect(1, 4, 10, 4);
+        ctx.fillStyle = '#ff8888';
+        ctx.fillRect(2, 5, 8, 2);
         break;
       default:
         ctx.fillStyle = '#fff';
