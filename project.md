@@ -230,10 +230,11 @@ Cooldown is divided by `player.fireRateMultiplier × fire_rate_bonus × cooldown
 
 ## Upgrades (`upgrades.js`)
 
-`rollUpgrades(3)` picks 3 random from pool. `applyUpgrade(player, id)` applies to one player. `applyUpgradeToAll(players, id)` applies to all alive players — for `new_weapon`, pre-rolls one random weapon and gives the same weapon to all. Each upgrade (except `new_weapon`) also has a `revert()` function used by the Micromanager global event. `revertUpgradeFromAll(players, id)` reverts a specific upgrade on all alive players (with safe minimums).
+`rollUpgrades(3)` picks 3 random from pool (no player argument needed — all labels are generic). `applyUpgrade(player, id)` applies to one player. `applyUpgradeToAll(players, id)` applies to all alive players — for `new_weapon`, pre-rolls one random weapon and gives the same weapon to all. Each upgrade (except `new_weapon`) also has a `revert()` function used by the Micromanager global event. `revertUpgradeFromAll(players, id)` reverts a specific upgrade on all alive players (with safe minimums).
 
 | ID | Name | Effect |
 |----|------|--------|
+| `improve_weapon` | "Improve one of your weapons" | Improves a random weapon from the player's loadout (random progression applied per-player) |
 | `new_weapon` | "Learn a new framework" | Adds a random unowned weapon |
 | `damage` | "Senior engineer review" | `damageMultiplier += 0.2` |
 | `speed` | "Agile methodology" | `speed *= 1.15` |

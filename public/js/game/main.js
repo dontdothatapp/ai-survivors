@@ -1031,9 +1031,7 @@ function executeGlobalEvent(event) {
 }
 
 function triggerTeamLevelUp() {
-  // Pass a representative player for dynamic upgrade naming
-  const representative = players.find(p => p.alive) || players[0];
-  const options = rollUpgrades(3, representative);
+  const options = rollUpgrades(3);
   votingState = { options, votes: new Map() };
   // Send to ALL controllers
   network.sendUpgradePromptToAll(options.map(o => ({

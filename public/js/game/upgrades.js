@@ -78,26 +78,20 @@ const UPGRADES = [
   },
 ];
 
-// Generate dynamic name/desc for improve_weapon based on player's weapons
-function getDynamicUpgrade(player) {
-  if (!player || player.weapons.length === 0) {
-    return { id: 'improve_weapon', name: 'Improve Weapon', desc: 'Improve a weapon' };
-  }
-  const w = player.weapons[Math.floor(Math.random() * player.weapons.length)];
-  const def = WEAPON_DEFS[w.type];
-  const weaponName = def ? def.name : w.type;
+// Generic label for improve_weapon (applies randomly per-player, so no specific weapon shown)
+function getDynamicUpgrade() {
   return {
     id: 'improve_weapon',
-    name: `Improve ${weaponName}`,
-    desc: `Improve ${weaponName}`,
+    name: 'Improve one of your weapons',
+    desc: 'Improve one of your weapons',
   };
 }
 
 // Pick n random unique upgrades
-export function rollUpgrades(n = 3, player) {
+export function rollUpgrades(n = 3) {
   const pool = UPGRADES.map(u => {
     if (u._dynamic) {
-      const dynamic = getDynamicUpgrade(player);
+      const dynamic = getDynamicUpgrade();
       return { ...u, name: dynamic.name, desc: dynamic.desc };
     }
     return { ...u };
